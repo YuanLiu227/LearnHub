@@ -45,8 +45,8 @@ router.get('/progress/:monitorId', (req, res) => {
   }
 });
 
-// 后台异步执行监控
-async function runMonitorInBackground(monitorId: string) {
+// 后台异步执行监控（导出供定时任务调用）
+export async function runMonitorInBackground(monitorId: string = `auto_${Date.now()}`) {
   let matchedCount = 0;
   let verifiedCount = 0;
 

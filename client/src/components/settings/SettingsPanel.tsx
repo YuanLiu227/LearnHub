@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { X, Settings as SettingsIcon } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/stores/appStore';
 import { HOT_REFRESH_OPTIONS, MONITOR_INTERVAL_OPTIONS } from '@/types';
@@ -51,61 +50,28 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   return (
     <div
       onClick={(e) => e.target === e.currentTarget && onClose()}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
     >
-      <Card
-        style={{
-          position: 'relative',
-          width: '90%',
-          maxWidth: '480px',
-          backgroundColor: '#1a1a2e',
-          borderRadius: '16px',
-          border: '2px solid #ff6b35',
-          padding: '24px',
-          color: '#e8e8e8',
-        }}
-      >
+      <div className="w-[90%] max-w-[480px] bg-surface border border-border rounded-xl p-6">
         {/* 关闭按钮 */}
         <button
           onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: '12px',
-            right: '12px',
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            border: 'none',
-            background: 'rgba(255,255,255,0.1)',
-            color: '#e8e8e8',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/5 text-text-secondary hover:text-text flex items-center justify-center"
         >
           <X size={18} />
         </button>
 
         {/* 标题 */}
         <div className="flex items-center gap-3 mb-6">
-          <SettingsIcon className="w-6 h-6 text-primary" />
-          <h2 className="text-xl font-bold text-light">设置</h2>
+          <SettingsIcon className="w-5 h-5 text-accent" />
+          <h2 className="text-base font-medium text-text">设置</h2>
         </div>
 
         {/* 设置项 */}
         <div className="space-y-6">
           {/* 热点刷新间隔 */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-light/80">
+            <label className="block text-sm font-medium text-text/60">
               热点定时刷新
             </label>
             <select
@@ -114,14 +80,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 ...localConfig,
                 hotRefreshInterval: Number(e.target.value)
               })}
+              className="w-full px-3.5 py-2 bg-surface border border-border rounded-lg text-text text-sm cursor-pointer focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
               style={{
-                width: '100%',
-                padding: '10px 16px',
-                backgroundColor: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '8px',
-                color: '#e8e8e8',
-                cursor: 'pointer',
+                backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='rgba(255,255,255,0.3)' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em',
+                paddingRight: '2.5rem',
               }}
             >
               {HOT_REFRESH_OPTIONS.map(opt => (
@@ -130,14 +95,14 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 </option>
               ))}
             </select>
-            <p className="text-xs text-light/40">
+            <p className="text-xs text-text-tertiary">
               当前: {formatInterval(localConfig.hotRefreshInterval)}
             </p>
           </div>
 
           {/* 自动监控间隔 */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-light/80">
+            <label className="block text-sm font-medium text-text/60">
               自动监控
             </label>
             <select
@@ -146,14 +111,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 ...localConfig,
                 monitorInterval: Number(e.target.value)
               })}
+              className="w-full px-3.5 py-2 bg-surface border border-border rounded-lg text-text text-sm cursor-pointer focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
               style={{
-                width: '100%',
-                padding: '10px 16px',
-                backgroundColor: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '8px',
-                color: '#e8e8e8',
-                cursor: 'pointer',
+                backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='rgba(255,255,255,0.3)' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                backgroundPosition: 'right 0.5rem center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: '1.5em 1.5em',
+                paddingRight: '2.5rem',
               }}
             >
               {MONITOR_INTERVAL_OPTIONS.map(opt => (
@@ -162,14 +126,14 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 </option>
               ))}
             </select>
-            <p className="text-xs text-light/40">
+            <p className="text-xs text-text-tertiary">
               当前: {formatInterval(localConfig.monitorInterval)}
             </p>
           </div>
 
           {/* 通知设置 */}
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-light/80">
+            <label className="block text-sm font-medium text-text/60">
               通知设置
             </label>
 
@@ -181,9 +145,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   ...localConfig,
                   notificationEnabled: e.target.checked
                 })}
-                className="w-5 h-5 rounded border-white/20 bg-white/5 text-primary focus:ring-primary"
+                className="w-4 h-4 rounded border-border bg-surface text-accent focus:ring-accent/30"
               />
-              <span className="text-sm text-light">浏览器通知</span>
+              <span className="text-sm text-text">浏览器通知</span>
             </label>
 
             <label className="flex items-center gap-3 cursor-pointer">
@@ -194,9 +158,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   ...localConfig,
                   emailEnabled: e.target.checked
                 })}
-                className="w-5 h-5 rounded border-white/20 bg-white/5 text-primary focus:ring-primary"
+                className="w-4 h-4 rounded border-border bg-surface text-accent focus:ring-accent/30"
               />
-              <span className="text-sm text-light">邮件通知</span>
+              <span className="text-sm text-text">邮件通知</span>
             </label>
           </div>
         </div>
@@ -210,7 +174,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             保存设置
           </Button>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

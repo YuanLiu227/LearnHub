@@ -1,65 +1,63 @@
 @import "tailwindcss";
 
-@theme {
-  --color-primary: #ff6b35;
-  --color-secondary: #4ecdc4;
-  --color-dark: #1a1a2e;
-  --color-darker: #16213e;
-  --color-light: #e8e8e8;
+@theme inline {
+  --color-bg: #0a0a0a;
+  --color-surface: #111111;
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border-hover: rgba(255, 255, 255, 0.12);
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-text: #fafafa;
+  --color-text-secondary: rgba(255, 255, 255, 0.5);
+  --color-text-tertiary: rgba(255, 255, 255, 0.3);
+
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-fade-up: fade-up 0.5s ease-out;
+  --animate-shimmer: shimmer 2s linear infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  from { background-position: 0 0; }
+  to { background-position: -200% 0; }
+}
+
+/* 点阵背景 */
+.bg-dot-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 /* 自定义滚动条 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-darker);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-primary);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #ff8555;
+  background: rgba(255, 255, 255, 0.15);
 }
 
-/* 玻璃态效果 */
-.glass {
-  background: rgba(26, 26, 46, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* 渐变动画 */
-@keyframes gradient {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-.animate-gradient {
-  background: linear-gradient(-45deg, #ff6b35, #4ecdc4, #45b7d1, #96c93d);
-  background-size: 400% 400%;
-  animation: gradient 15s ease infinite;
-}
-
-/* 热度条动画 */
-@keyframes pulse-heat {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgba(255, 107, 53, 0);
-  }
-}
-
-.pulse-heat {
-  animation: pulse-heat 2s ease-in-out infinite;
+/* 选中文本颜色 */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: #fafafa;
 }

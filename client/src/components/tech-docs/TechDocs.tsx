@@ -40,7 +40,6 @@ export function TechDocs() {
 
   useEffect(() => {
     fetchDocs();
-    // 每小时刷新一次
     const interval = setInterval(fetchDocs, 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -48,14 +47,14 @@ export function TechDocs() {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-light flex items-center gap-2">
-          <Book className="w-5 h-5 text-secondary" />
+        <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wider flex items-center gap-2">
+          <Book className="w-4 h-4 text-accent" />
           最新技术动态
           <Badge variant="info">Context7</Badge>
         </h2>
         <div className="flex items-center gap-2">
           {lastUpdated && (
-            <span className="text-xs text-light/40">
+            <span className="text-xs text-text-tertiary">
               更新于 {lastUpdated}
             </span>
           )}
@@ -74,9 +73,9 @@ export function TechDocs() {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {docs.length === 0 && !isLoading && (
-          <p className="text-light/60 text-center py-4">
+          <p className="text-xs text-text-tertiary text-center py-4">
             点击刷新按钮获取最新技术文档
           </p>
         )}
@@ -84,10 +83,10 @@ export function TechDocs() {
         {docs.map((doc) => (
           <div
             key={doc.tech}
-            className="p-4 bg-white/5 rounded-lg border border-white/5"
+            className="p-4 bg-surface border border-border rounded-lg"
           >
-            <h3 className="font-medium text-light mb-2">{doc.tech}</h3>
-            <p className="text-sm text-light/70 line-clamp-3">
+            <h3 className="text-sm font-medium text-text mb-1.5">{doc.tech}</h3>
+            <p className="text-xs text-text-secondary leading-relaxed line-clamp-3">
               {doc.content.length > 300
                 ? doc.content.slice(0, 300) + '...'
                 : doc.content}

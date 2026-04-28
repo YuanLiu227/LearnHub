@@ -6,7 +6,7 @@ import path from 'path';
 import keywordsRouter from './routes/keywords.js';
 import hotRouter from './routes/hot.js';
 import aiRouter from './routes/ai.js';
-import monitorRouter from './routes/monitor.js';
+import monitorRouter, { runMonitorInBackground } from './routes/monitor.js';
 import configRouter from './routes/config.js';
 import docsRouter from './routes/docs.js';
 import dashboardRouter from './routes/dashboard.js';
@@ -88,6 +88,24 @@ app.listen(PORT, () => {
 ║                                                       ║
 ╚═══════════════════════════════════════════════════════╝
   `);
+
+  // 定时自动监控（默认 30 分钟）
+  const MONITOR_INTERVAL = parseInt(process.env.MONITOR_CHECK_INTERVAL || '1800000', 10);
+  let isRunning = false;
+
+  setInterval(async () => {
+    if (isRunning) {
+      console.log('[AutoMonitor] Previous run still in progress, skipping');
+      return;
+    }
+    isRunning = true;
+    console.log(`[AutoMonitor] Starting scheduled monitoring (interval: ${MONITOR_INTERVAL}ms)...`);
+    await runMonitorInBackground();
+    isRunning = false;
+    console.log('[AutoMonitor] Scheduled monitoring completed');
+  }, MONITOR_INTERVAL);
+
+  console.log(`[AutoMonitor] Auto monitoring every ${MONITOR_INTERVAL / 60000} minutes`);
 });
 
 export default app;

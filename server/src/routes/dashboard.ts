@@ -38,7 +38,7 @@ router.get('/stats', (_req, res) => {
 // 获取热点列表（分页）
 router.get('/hotspots', (req, res) => {
   try {
-    const { page = 1, pageSize = 50 } = req.query;
+    const { page = 1, pageSize = 20 } = req.query;
     const offset = (Number(page) - 1) * Number(pageSize);
 
     const rows = db.prepare(`

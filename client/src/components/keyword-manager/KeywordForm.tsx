@@ -33,7 +33,6 @@ export function KeywordForm() {
       <Button
         type="submit"
         disabled={!term.trim() || isAdding}
-        className="gap-2"
       >
         {isAdding ? (
           <Loader2 className="w-4 h-4 animate-spin" />

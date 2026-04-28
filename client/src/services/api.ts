@@ -70,7 +70,7 @@ export const dashboardApi = {
     return response.data;
   },
 
-  getHotspots: async (page = 1, pageSize = 50) => {
+  getHotspots: async (page = 1, pageSize = 20) => {
     const response = await api.get('/dashboard/hotspots', { params: { page, pageSize } });
     return response.data;
   },

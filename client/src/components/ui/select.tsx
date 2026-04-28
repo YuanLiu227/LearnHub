@@ -6,25 +6,25 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, ...props }, ref) => {
+  ({ className, label, children, ...props }, ref) => {
     return (
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         {label && (
-          <label className="block text-sm font-medium text-light/80">
+          <label className="block text-sm font-medium text-text/60">
             {label}
           </label>
         )}
         <select
           ref={ref}
           className={cn(
-            'w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg',
-            'text-light appearance-none cursor-pointer',
-            'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary',
+            'w-full px-3.5 py-2 bg-surface border border-border rounded-lg',
+            'text-text appearance-none cursor-pointer text-sm',
+            'focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30',
             'transition-all duration-200',
             className
           )}
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='rgba(255,255,255,0.3)' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
             backgroundPosition: 'right 0.5rem center',
             backgroundRepeat: 'no-repeat',
             backgroundSize: '1.5em 1.5em',
@@ -32,11 +32,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           }}
           {...props}
         >
-          <option value="AI编程" className="bg-dark">AI编程</option>
-          <option value="机器学习" className="bg-dark">机器学习</option>
-          <option value="深度学习" className="bg-dark">深度学习</option>
-          <option value="NLP" className="bg-dark">NLP</option>
-          <option value="计算机视觉" className="bg-dark">计算机视觉</option>
+          {children}
         </select>
       </div>
     );
