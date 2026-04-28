@@ -1,0 +1,58 @@
+{
+  "server": {
+    "port": 3001,
+    "nodeEnv": "development"
+  },
+  "api": {
+    "openrouter": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "defaultModel": "deepseek/deepseek-chat-v3"
+    },
+    "firecrawl": {
+      "mcpCommand": "npx",
+      "mcpArgs": ["-y", "firecrawl-mcp"]
+    }
+  },
+  "dataSources": [
+    {
+      "name": "Firecrawl Search",
+      "source": "search",
+      "weight": 1.0,
+      "query": "AI编程 AI 技术 最新 2025",
+      "limit": 10
+    },
+    {
+      "name": "Hacker News",
+      "source": "hackernews",
+      "url": "https://news.ycombinator.com/",
+      "weight": 1.2
+    },
+    {
+      "name": "Reddit AI",
+      "source": "reddit",
+      "url": "https://www.reddit.com/r/MachineLearning/",
+      "weight": 1.1
+    },
+    {
+      "name": "AI Navigation",
+      "source": "ainavigation",
+      "url": "https://theresanaiforthat.com/",
+      "weight": 0.9
+    }
+  ],
+  "monitor": {
+    "defaultScope": "AI编程",
+    "hotTopicsLimit": 20,
+    "veracityThreshold": 0.5,
+    "hotRefreshInterval": 1800000,
+    "monitorInterval": 900000
+  },
+  "notification": {
+    "browserEnabled": true,
+    "emailEnabled": true
+  },
+  "client": {
+    "apiBaseUrl": "/api",
+    "devServerPort": 5173
+  }
+}

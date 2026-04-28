@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #ff6b35;
+  --color-secondary: #4ecdc4;
+  --color-dark: #1a1a2e;
+  --color-darker: #16213e;
+  --color-light: #e8e8e8;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-darker);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ff8555;
+}
+
+/* 玻璃态效果 */
+.glass {
+  background: rgba(26, 26, 46, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 渐变动画 */
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient {
+  background: linear-gradient(-45deg, #ff6b35, #4ecdc4, #45b7d1, #96c93d);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+/* 热度条动画 */
+@keyframes pulse-heat {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 107, 53, 0);
+  }
+}
+
+.pulse-heat {
+  animation: pulse-heat 2s ease-in-out infinite;
+}

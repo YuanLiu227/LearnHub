@@ -1,0 +1,16 @@
+{
+  "name": "hot-monitor",
+  "version": "1.0.0",
+  "description": "AI 资讯监控系统",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "npm run dev:server & npm run dev:client",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "install:all": "npm install && cd client && npm install && cd ../server && npm install"
+  }
+}
