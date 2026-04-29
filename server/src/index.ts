@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 import keywordsRouter from './routes/keywords.js';
-import hotRouter from './routes/hot.js';
 import aiRouter from './routes/ai.js';
 import monitorRouter, { runMonitorInBackground } from './routes/monitor.js';
 import configRouter from './routes/config.js';
@@ -21,7 +20,7 @@ const PORT = process.env.PORT || 3001;
 
 // 中间件
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173'],
   credentials: true,
 }));
 app.use(express.json());
@@ -34,7 +33,6 @@ app.use((req, res, next) => {
 
 // API 路由
 app.use('/api/keywords', keywordsRouter);
-app.use('/api/hot', hotRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/monitor', monitorRouter);
 app.use('/api/config', configRouter);
@@ -56,7 +54,7 @@ app.get('/api/test-env', (req, res) => {
 
 // 测试 veracity 检查
 app.get('/api/test-veracity', async (req, res) => {
-  const { checkVeracity } = await import('./services/openrouter.js');
+  const { checkVeracity } = await import('./services/siliconflow.js');
   try {
     const result = await checkVeracity(
       '测试标题：AI 技术新突破',
@@ -80,7 +78,7 @@ app.listen(PORT, () => {
   console.log(`
 ╔═══════════════════════════════════════════════════════╗
 ║                                                       ║
-║   🔥 Hot Monitor Server                               ║
+║   📚 LearnHub Server                                    ║
 ║   =========================================           ║
 ║                                                       ║
 ║   🚀 Server running on http://localhost:${PORT}         ║
@@ -89,23 +87,6 @@ app.listen(PORT, () => {
 ╚═══════════════════════════════════════════════════════╝
   `);
 
-  // 定时自动监控（默认 30 分钟）
-  const MONITOR_INTERVAL = parseInt(process.env.MONITOR_CHECK_INTERVAL || '1800000', 10);
-  let isRunning = false;
-
-  setInterval(async () => {
-    if (isRunning) {
-      console.log('[AutoMonitor] Previous run still in progress, skipping');
-      return;
-    }
-    isRunning = true;
-    console.log(`[AutoMonitor] Starting scheduled monitoring (interval: ${MONITOR_INTERVAL}ms)...`);
-    await runMonitorInBackground();
-    isRunning = false;
-    console.log('[AutoMonitor] Scheduled monitoring completed');
-  }, MONITOR_INTERVAL);
-
-  console.log(`[AutoMonitor] Auto monitoring every ${MONITOR_INTERVAL / 60000} minutes`);
 });
 
 export default app;

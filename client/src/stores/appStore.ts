@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import type { Keyword, NewsItem, AppConfig, MonitorProgress } from '../types';
-import { keywordsApi, monitorApi, dashboardApi, configApi } from '../services/api';
+import { keywordsApi, monitorApi, dashboardApi, searchApi, configApi } from '../services/api';
 
-export type TabType = 'dashboard' | 'keywords' | 'search';
+export type TabType = 'dashboard' | 'keywords' | 'overview' | 'search';
 
 interface DashboardStats {
-  totalHotspots: number;
+  totalResources: number;
   todayNew: number;
-  urgentHot: number;
+  sourcesCount: number;
   monitoredKeywords: number;
 }
 
@@ -18,31 +18,35 @@ interface AppState {
 
   // 关键词
   keywords: Keyword[];
+  allKeywords: Keyword[];
   fetchKeywords: () => Promise<void>;
+  fetchAllKeywords: () => Promise<void>;
   addKeyword: (term: string) => Promise<void>;
-  deleteKeyword: (id: string) => Promise<void>;
+  archiveKeyword: (id: string) => Promise<void>;
+  permanentDeleteKeyword: (id: string) => Promise<void>;
   toggleKeyword: (id: string, enabled: boolean) => Promise<void>;
+  deleteResource: (id: string) => Promise<void>;
 
-  // 仪表盘
+  // 学习资源
   stats: DashboardStats;
-  hotspots: NewsItem[];
-  hotspotsTotal: number;
-  newHotspotItems: NewsItem[];
+  resources: NewsItem[];
+  resourcesTotal: number;
+  newResourceItems: NewsItem[];
   fetchStats: () => Promise<void>;
-  fetchHotspots: (page?: number) => Promise<void>;
-  clearNewHotspotItems: () => void;
+  fetchResources: (page?: number) => Promise<void>;
+  clearNewResourceItems: () => void;
 
-  // 监控
-  isMonitoring: boolean;
-  monitorProgress: MonitorProgress | null;
-  triggerMonitor: () => Promise<void>;
+  // 监控（搜索）
+  isSearching: boolean;
+  searchProgress: MonitorProgress | null;
+  triggerSearch: () => Promise<void>;
 
-  // 搜索
+  // 搜索（历史）
   searchQuery: string;
   searchResults: NewsItem[];
   searchTotal: number;
   setSearchQuery: (q: string) => void;
-  searchHotspots: (q: string, page?: number) => Promise<void>;
+  searchResources: (q: string, page?: number) => Promise<void>;
 
   // 配置
   config: AppConfig;
@@ -57,11 +61,12 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set, get) => ({
   // Tab 状态
-  activeTab: 'dashboard',
+  activeTab: 'search',
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   // 关键词
   keywords: [],
+  allKeywords: [],
   fetchKeywords: async () => {
     set({ isLoading: true });
     try {
@@ -71,6 +76,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ error: error.message || '获取关键词失败' });
     } finally {
       set({ isLoading: false });
+    }
+  },
+  fetchAllKeywords: async () => {
+    try {
+      const allKeywords = await keywordsApi.getAllKeywords();
+      set({ allKeywords, error: null });
+    } catch (error: any) {
+      set({ error: error.message || '获取关键词总览失败' });
     }
   },
   addKeyword: async (term: string) => {
@@ -84,15 +97,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ error: error.message || '添加关键词失败' });
     }
   },
-  deleteKeyword: async (id: string) => {
+  archiveKeyword: async (id: string) => {
     try {
-      await keywordsApi.delete(id);
+      await keywordsApi.archive(id);
       set(state => ({
         keywords: state.keywords.filter(k => k.id !== id),
         error: null,
       }));
     } catch (error: any) {
-      set({ error: error.message || '删除关键词失败' });
+      set({ error: error.message || '归档关键词失败' });
+    }
+  },
+  permanentDeleteKeyword: async (id: string) => {
+    try {
+      await keywordsApi.permanentDelete(id);
+      await get().fetchAllKeywords();
+      set({ error: null });
+    } catch (error: any) {
+      set({ error: error.message || '永久删除失败' });
     }
   },
   toggleKeyword: async (id: string, enabled: boolean) => {
@@ -109,52 +131,60 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  // 仪表盘
+  // 学习资源
   stats: {
-    totalHotspots: 0,
+    totalResources: 0,
     todayNew: 0,
-    urgentHot: 0,
+    sourcesCount: 4,
     monitoredKeywords: 0,
   },
-  hotspots: [],
-  hotspotsTotal: 0,
-  newHotspotItems: [],
+  resources: [],
+  resourcesTotal: 0,
+  newResourceItems: [],
 
   fetchStats: async () => {
     try {
-      const stats = await dashboardApi.getStats();
-      set({ stats, error: null });
+      const data = await dashboardApi.getStats();
+      set({
+        stats: {
+          totalResources: data.totalHotspots,
+          todayNew: data.todayNew,
+          sourcesCount: 4,
+          monitoredKeywords: data.monitoredKeywords,
+        },
+        error: null,
+      });
     } catch (error: any) {
       set({ error: error.message || '获取统计失败' });
     }
   },
 
-  fetchHotspots: async (page = 1) => {
+  fetchResources: async (page = 1) => {
     try {
-      const data = await dashboardApi.getHotspots(page);
+      const data = await dashboardApi.getHotspots(page, 20);
       set({
-        hotspots: data.items,
-        hotspotsTotal: data.total,
+        resources: data.items,
+        resourcesTotal: data.total,
         error: null,
       });
     } catch (error: any) {
-      set({ error: error.message || '获取热点失败' });
+      set({ error: error.message || '获取资源失败' });
     }
   },
 
-  clearNewHotspotItems: () => set({ newHotspotItems: [] }),
+  clearNewResourceItems: () => set({ newResourceItems: [] }),
 
-  // 监控
-  isMonitoring: false,
-  monitorProgress: null,
+  // 搜索（触发全量搜索）
+  isSearching: false,
+  searchProgress: null,
 
-  triggerMonitor: async () => {
+  triggerSearch: async () => {
     const startedAt = Date.now();
 
     set({
-      isMonitoring: true,
-      monitorProgress: { stage: 'started', message: '正在启动监控...' },
-      error: null
+      isSearching: true,
+      searchProgress: { stage: 'started', message: '正在搜索...' },
+      error: null,
     });
 
     try {
@@ -167,57 +197,65 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
           const progress = await res.json() as MonitorProgress;
-          set({ monitorProgress: progress });
+          set({ searchProgress: progress });
 
-            if (progress.stage === 'completed' || progress.stage === 'error') {
-              clearInterval(pollInterval);
-              setTimeout(() => {
-                set({ isMonitoring: false, monitorProgress: null });
-                // 刷新数据
-                get().fetchStats();
-                get().fetchHotspots().then(() => {
-                  const latestHotspots = get().hotspots;
-                  const newItems = latestHotspots.filter(item => item.matchedAt >= startedAt);
-                  set({ newHotspotItems: newItems });
-                });
-              }, 2000);
+          if (progress.stage === 'completed' || progress.stage === 'error') {
+            clearInterval(pollInterval);
+            setTimeout(() => {
+              set({ isSearching: false, searchProgress: null });
+              get().fetchStats();
+              get().fetchResources().then(() => {
+                const latest = get().resources;
+                const newItems = latest.filter(item => item.matchedAt >= startedAt);
+                set({ newResourceItems: newItems });
+              });
+            }, 2000);
           }
         } catch (e: any) {
           console.error('[Progress] Poll error:', e);
           clearInterval(pollInterval);
-          set({ error: '获取进度失败: ' + e.message, isMonitoring: false, monitorProgress: null });
+          set({ error: '获取进度失败: ' + e.message, isSearching: false, searchProgress: null });
         }
       }, 500);
 
     } catch (error: any) {
-      set({ error: error.message || '监控启动失败', isMonitoring: false, monitorProgress: null });
+      set({ error: error.message || '搜索启动失败', isSearching: false, searchProgress: null });
     }
   },
 
-  // 搜索
+  // 搜索（历史记录）
   searchQuery: '',
   searchResults: [],
   searchTotal: 0,
   setSearchQuery: (q) => set({ searchQuery: q }),
-  searchHotspots: async (q: string, page = 1) => {
+  searchResources: async (q: string, page = 1) => {
     if (!q.trim()) {
       set({ searchResults: [], searchTotal: 0 });
       return;
     }
     try {
-      const data = await dashboardApi.search(q, page);
+      const data = await searchApi.search(q, page);
       set({ searchResults: data.items, searchTotal: data.total, error: null });
     } catch (error: any) {
       set({ error: error.message || '搜索失败' });
     }
   },
 
+  deleteResource: async (id: string) => {
+    try {
+      await dashboardApi.deleteResource(id);
+      set(state => ({
+        resources: state.resources.filter(r => r.id !== id),
+        searchResults: state.searchResults.filter(r => r.id !== id),
+        error: null,
+      }));
+    } catch (error: any) {
+      set({ error: error.message || '删除资源失败' });
+    }
+  },
+
   // 配置
   config: {
-    hotRefreshEnabled: true,
-    hotRefreshInterval: 30 * 60 * 1000,
-    autoMonitorEnabled: true,
-    monitorInterval: 60 * 60 * 1000,
     emailEnabled: true,
     notificationEnabled: true,
   },

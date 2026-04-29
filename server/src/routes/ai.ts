@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { chat, checkVeracity } from '../services/openrouter.js';
+import { chat, checkVeracity } from '../services/siliconflow.js';
 
 const router = Router();
 

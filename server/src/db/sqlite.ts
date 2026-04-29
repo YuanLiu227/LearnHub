@@ -3,7 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, '../../data/hot-monitor.db');
+const defaultDbPath = path.join(__dirname, '../../data/hot-monitor.db');
+const dbPath = process.env.DB_PATH || defaultDbPath;
 
 // 确保 data 目录存在
 import fs from 'fs';
@@ -72,6 +73,11 @@ try {
 }
 try {
   db.exec(`ALTER TABLE news_items ADD COLUMN heat REAL DEFAULT 50`);
+} catch (e) {
+  // 字段可能已存在
+}
+try {
+  db.exec(`ALTER TABLE keywords ADD COLUMN archived INTEGER DEFAULT 0`);
 } catch (e) {
   // 字段可能已存在
 }

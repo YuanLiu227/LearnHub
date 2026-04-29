@@ -5,6 +5,7 @@ export interface Keyword {
   term: string;
   scope?: string;
   enabled: boolean;
+  archived: boolean;
   createdAt: number;
   lastMatchedAt?: number;
   hotspotCount?: number;

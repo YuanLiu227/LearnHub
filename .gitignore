@@ -32,3 +32,17 @@ Thumbs.db
 # SQLite 数据库
 *.db
 *.db-*
+*.sqlite
+server/data/
+
+# 测试工件
+harness_*.json
+essay_*.json
+yupi_*.json
+rag_results*.json
+page*.json
+test*.json
+empty_kw.json
+exact_kw.json
+course_articles.json
+essay_chunk.js

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Keyword, HotTopic, NewsItem, AppConfig } from '../types';
+import type { Keyword, NewsItem, AppConfig } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -15,13 +15,22 @@ export const keywordsApi = {
     return response.data.keywords;
   },
 
+  getAllKeywords: async (): Promise<Keyword[]> => {
+    const response = await api.get('/keywords/all');
+    return response.data.keywords;
+  },
+
   add: async (term: string): Promise<Keyword> => {
     const response = await api.post('/keywords', { term });
     return response.data;
   },
 
-  delete: async (id: string): Promise<void> => {
-    await api.delete('/keywords', { params: { id } });
+  archive: async (id: string): Promise<void> => {
+    await api.post('/keywords/archive', { id });
+  },
+
+  permanentDelete: async (id: string): Promise<void> => {
+    await api.delete('/keywords/permanent', { params: { id } });
   },
 
   update: async (id: string, updates: Partial<Keyword>): Promise<Keyword> => {
@@ -30,10 +39,10 @@ export const keywordsApi = {
   },
 };
 
-// 热点 API
-export const hotApi = {
-  getHotTopics: async (scope: string = 'AI编程', limit: number = 20, forceRefresh: boolean = false): Promise<{ topics: HotTopic[]; cached: boolean }> => {
-    const response = await api.post('/hot', { scope, limit, forceRefresh });
+// 实时搜索 API
+export const searchApi = {
+  search: async (q: string, page: number = 1, pageSize: number = 20) => {
+    const response = await api.get('/dashboard/search', { params: { q, page, pageSize } });
     return response.data;
   },
 };
@@ -70,14 +79,20 @@ export const dashboardApi = {
     return response.data;
   },
 
-  getHotspots: async (page = 1, pageSize = 20) => {
-    const response = await api.get('/dashboard/hotspots', { params: { page, pageSize } });
+  getHotspots: async (page = 1, pageSize = 20, source?: string) => {
+    const params: any = { page, pageSize };
+    if (source && source !== 'all') params.source = source;
+    const response = await api.get('/dashboard/hotspots', { params });
     return response.data;
   },
 
   search: async (q: string, page = 1, pageSize = 20) => {
     const response = await api.get('/dashboard/search', { params: { q, page, pageSize } });
     return response.data;
+  },
+
+  deleteResource: async (id: string): Promise<void> => {
+    await api.delete(`/dashboard/resource/${id}`);
   },
 };
 

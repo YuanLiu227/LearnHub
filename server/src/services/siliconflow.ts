@@ -132,42 +132,34 @@ Respond with isRelevant:true only if the content is clearly about AI topics.`;
 }
 
 /**
- * 检查内容是否是热门大事件
+ * 检查内容质量：评估信息是否有实质价值，过滤低质噪音
  */
-export async function checkHotness(
+export async function checkContentQuality(
   title: string,
-  content: string,
-  publishedAt: number | null
-): Promise<{ isHot: boolean; hotScore: number; reason: string }> {
-  const systemPrompt = `You are a hotness evaluator. Determine if this content represents a significant/trending event or just routine updates.
+  content: string
+): Promise<{ isQuality: boolean; score: number; reason: string }> {
+  const systemPrompt = `You are a content quality evaluator for tech news aggregation. Determine if the given content is substantive and useful versus low-effort noise.
 
-Consider:
-1. Is this a MAJOR news/breakthrough announcement? (product launches, major discoveries, big company announcements)
-2. Or is this routine content? (general tutorials, routine updates, opinion pieces)
-3. Does it have the potential for wide discussion/controversy?
+Criteria for LOW quality (score < 0.3):
+- Vague one-liners with no specific information ("AI is the future", "this is amazing")
+- Pure opinion without facts or data
+- Generic motivational phrases, spam-like content
+- Content with no technical substance (no model names, no version numbers, no concrete details)
+- Duplicate or near-duplicate of common knowledge
 
-AI related hot events include:
-- New AI model releases (GPT-5, Claude 4, Gemini Ultra, etc.)
-- Major AI company announcements (OpenAI, Google, Anthropic, Meta)
-- AI policy/regulation news
-- Breakthrough research papers
-- Major AI product launches
-- Significant AI incidents or controversies
-
-Routine content:
-- General how-to tutorials
-- Routine software updates
-- Personal opinions without news value
-- Job postings
-- Event announcements without major impact
+Criteria for HIGH quality (score >= 0.6):
+- Specific news with concrete details (model releases, benchmarks, version numbers)
+- Technical analysis or comparison with data
+- Official announcements, verified reports
+- In-depth tutorials or code examples
+- Original insights or analysis
 
 IMPORTANT: You MUST respond with ONLY valid JSON, no other text. Format:
-{"isHot":true,"hotScore":0.85,"reason":"brief reason why this is or isn't hot"}
+{"isQuality":true,"score":0.85,"reason":"brief reason why"}
 
-hotScore: 0.0-1.0 where 1.0 is extremely hot/major news`;
+score: 0.0-1.0 where 1.0 is highest quality, substantive content`;
 
-  const freshnessBonus = publishedAt ? Math.max(0, 1 - (Date.now() - publishedAt) / (7 * 24 * 60 * 60 * 1000)) : 0.5;
-  const userMessage = `Title: ${title}\n\nContent: ${content}\n\nPublished: ${publishedAt ? new Date(publishedAt).toISOString() : 'Unknown'}`;
+  const userMessage = `Title: ${title}\n\nContent: ${content}`;
 
   try {
     const response = await chat(
@@ -175,37 +167,34 @@ hotScore: 0.0-1.0 where 1.0 is extremely hot/major news`;
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      'deepseek-ai/Deepseek-V3'
+      'deepseek-ai/DeepSeek-V3'
     );
 
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
         const result = JSON.parse(jsonMatch[0]);
-        const hotScore = Math.max(0, Math.min(1.0, result.hotScore ?? 0.5));
-        // 结合时间新鲜度和AI评估的热度
-        const finalScore = (hotScore * 0.7 + freshnessBonus * 0.3);
         return {
-          isHot: result.isHot ?? false,
-          hotScore: finalScore,
+          isQuality: result.isQuality ?? false,
+          score: Math.max(0, Math.min(1.0, result.score ?? 0.5)),
           reason: result.reason ?? '',
         };
       } catch (parseError) {
-        console.error('[Hotness] JSON parse error:', parseError);
+        console.error('[ContentQuality] JSON parse error:', parseError);
       }
     }
 
     return {
-      isHot: false,
-      hotScore: 0.5,
-      reason: 'AI analysis failed, defaulting to moderate',
+      isQuality: false,
+      score: 0.5,
+      reason: 'AI analysis failed, defaulting to moderate quality',
     };
   } catch (error: any) {
-    console.error('[Hotness] Check failed:', error.message || error);
+    console.error('[ContentQuality] Check failed:', error.message || error);
     return {
-      isHot: false,
-      hotScore: 0.5,
-      reason: 'Hotness check failed, defaulting to moderate',
+      isQuality: false,
+      score: 0.5,
+      reason: 'Content quality check failed, defaulting to moderate quality',
     };
   }
 }

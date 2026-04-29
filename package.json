@@ -1,5 +1,5 @@
 {
-  "name": "hot-monitor",
+  "name": "learnhub",
   "version": "1.0.0",
   "description": "AI 资讯监控系统",
   "private": true,
@@ -12,5 +12,8 @@
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
     "install:all": "npm install && cd client && npm install && cd ../server && npm install"
+  },
+  "dependencies": {
+    "https-proxy-agent": "^9.0.0"
   }
 }

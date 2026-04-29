@@ -8,28 +8,50 @@ function generateId(): string {
   return `kw_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// 获取所有关键词
+/** 行转 Keyword */
+function toKeyword(row: any): Keyword {
+  return {
+    id: row.id,
+    term: row.term,
+    scope: row.scope,
+    enabled: Boolean(row.enabled),
+    archived: Boolean(row.archived),
+    createdAt: row.created_at,
+    lastMatchedAt: row.last_matched_at,
+    hotspotCount: row.hotspot_count ?? 0,
+  };
+}
+
+// 获取活跃关键词（未归档的）
 router.get('/', (req, res) => {
   try {
     const keywords = db.prepare(`
       SELECT k.*,
         (SELECT COUNT(*) FROM news_items WHERE keyword_id = k.id) as hotspot_count
       FROM keywords k
+      WHERE k.archived IS NOT 1
       ORDER BY k.created_at DESC
     `).all();
-    const result: Keyword[] = keywords.map((row: any) => ({
-      id: row.id,
-      term: row.term,
-      scope: row.scope,
-      enabled: Boolean(row.enabled),
-      createdAt: row.created_at,
-      lastMatchedAt: row.last_matched_at,
-      hotspotCount: row.hotspot_count,
-    }));
-    res.json({ keywords: result });
+    res.json({ keywords: keywords.map(toKeyword) });
   } catch (error) {
     console.error('Error fetching keywords:', error);
     res.status(500).json({ error: 'Failed to fetch keywords' });
+  }
+});
+
+// 获取所有关键词（含已归档，用于总览）
+router.get('/all', (req, res) => {
+  try {
+    const keywords = db.prepare(`
+      SELECT k.*,
+        (SELECT COUNT(*) FROM news_items WHERE keyword_id = k.id) as hotspot_count
+      FROM keywords k
+      ORDER BY k.archived ASC, k.created_at DESC
+    `).all();
+    res.json({ keywords: keywords.map(toKeyword) });
+  } catch (error) {
+    console.error('Error fetching all keywords:', error);
+    res.status(500).json({ error: 'Failed to fetch all keywords' });
   }
 });
 
@@ -50,38 +72,39 @@ router.post('/', (req, res) => {
       VALUES (?, ?, ?, 1, ?)
     `).run(id, term, scope, createdAt);
 
-    const keyword: Keyword = {
-      id,
-      term,
-      scope,
-      enabled: true,
-      createdAt,
-    };
-
-    res.status(201).json(keyword);
+    res.status(201).json(toKeyword({ id, term, scope, enabled: 1, created_at: createdAt, archived: 0, hotspot_count: 0 }));
   } catch (error) {
     console.error('Error adding keyword:', error);
     res.status(500).json({ error: 'Failed to add keyword' });
   }
 });
 
-// 删除关键词
-router.delete('/', (req, res) => {
+// 归档关键词（保留资源）
+router.post('/archive', (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ error: 'id is required' });
+
+    db.prepare('UPDATE keywords SET archived = 1, enabled = 0 WHERE id = ?').run(id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error archiving keyword:', error);
+    res.status(500).json({ error: 'Failed to archive keyword' });
+  }
+});
+
+// 永久删除关键词 + 关联资源
+router.delete('/permanent', (req, res) => {
   try {
     const { id } = req.query;
+    if (!id) return res.status(400).json({ error: 'id is required' });
 
-    if (!id) {
-      return res.status(400).json({ error: 'id is required' });
-    }
-
-    // 先删除关联的新闻记录
     db.prepare('DELETE FROM news_items WHERE keyword_id = ?').run(id);
-    // 再删除关键词
     db.prepare('DELETE FROM keywords WHERE id = ?').run(id);
     res.json({ success: true });
   } catch (error) {
-    console.error('Error deleting keyword:', error);
-    res.status(500).json({ error: 'Failed to delete keyword' });
+    console.error('Error permanently deleting keyword:', error);
+    res.status(500).json({ error: 'Failed to permanently delete keyword' });
   }
 });
 
@@ -89,32 +112,19 @@ router.delete('/', (req, res) => {
 router.patch('/', (req, res) => {
   try {
     const { id, ...updates } = req.body;
-
-    if (!id) {
-      return res.status(400).json({ error: 'id is required' });
-    }
+    if (!id) return res.status(400).json({ error: 'id is required' });
 
     if (updates.enabled !== undefined) {
       db.prepare('UPDATE keywords SET enabled = ? WHERE id = ?').run(updates.enabled ? 1 : 0, id);
     }
-
     if (updates.lastMatchedAt !== undefined) {
       db.prepare('UPDATE keywords SET last_matched_at = ? WHERE id = ?').run(updates.lastMatchedAt, id);
     }
 
-    const keyword = db.prepare('SELECT * FROM keywords WHERE id = ?').get(id) as any;
-    if (!keyword) {
-      return res.status(404).json({ error: 'Keyword not found' });
-    }
+    const row = db.prepare('SELECT * FROM keywords WHERE id = ?').get(id) as Record<string, unknown>;
+    if (!row) return res.status(404).json({ error: 'Keyword not found' });
 
-    res.json({
-      id: keyword.id,
-      term: keyword.term,
-      scope: keyword.scope,
-      enabled: Boolean(keyword.enabled),
-      createdAt: keyword.created_at,
-      lastMatchedAt: keyword.last_matched_at,
-    });
+    res.json(toKeyword(row));
   } catch (error) {
     console.error('Error updating keyword:', error);
     res.status(500).json({ error: 'Failed to update keyword' });

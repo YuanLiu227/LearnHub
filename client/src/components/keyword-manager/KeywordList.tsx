@@ -1,4 +1,4 @@
-import { Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Archive, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { formatTime } from '@/lib/utils';
 
 export function KeywordList() {
   const keywords = useAppStore(state => state.keywords);
-  const deleteKeyword = useAppStore(state => state.deleteKeyword);
+  const archiveKeyword = useAppStore(state => state.archiveKeyword);
   const toggleKeyword = useAppStore(state => state.toggleKeyword);
 
   if (keywords.length === 0) {
@@ -32,7 +32,7 @@ export function KeywordList() {
               )}
             </div>
             <div className="flex items-center gap-2 mt-1.5 text-xs text-text-secondary">
-              <span className="text-accent">{keyword.hotspotCount ?? 0} 条热点</span>
+              <span className="text-accent">{keyword.hotspotCount ?? 0} 条资源</span>
               {keyword.lastMatchedAt && (
                 <>
                   <span className="text-text-tertiary">·</span>
@@ -57,10 +57,11 @@ export function KeywordList() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => deleteKeyword(keyword.id)}
-              className="p-1.5 hover:text-red-400"
+              onClick={() => archiveKeyword(keyword.id)}
+              className="p-1.5 hover:text-yellow-400"
+              title="归档关键词（保留学习资源）"
             >
-              <Trash2 className="w-4 h-4" />
+              <Archive className="w-4 h-4" />
             </Button>
           </div>
         </Card>
