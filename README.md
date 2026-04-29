@@ -5,12 +5,11 @@
 ## 功能特性
 
 - **关键词管理** — 添加感兴趣的关键词，灵活启用/暂停/归档/删除
-- **多源聚合搜索** — 跨 Bilibili、YouTube、编程导航、鱼皮AI导航统一搜索
+- **多源聚合搜索** — 跨 Bilibili、编程导航、鱼皮AI导航统一搜索
 - **综合评分系统** — 热度 + 来源可信度 + 时效性 + 内容类型多维度评分排序
 - **AI 内容处理** — 基于 DeepSeek-V3 的智能总结与质量评估
 - **实时搜索进度** — 异步搜索 + 轮询进度反馈
 - **灵活的资源管理** — 支持单条删除、按关键词归档
-- **通知服务** — 浏览器通知和邮件通知
 
 ## 技术栈
 
@@ -28,7 +27,6 @@
 | 数据源 | 内容类型 | 鉴权 |
 |--------|----------|------|
 | Bilibili | 视频教程 | 无需密钥 |
-| YouTube | 英文视频教程 | YouTube Data API Key |
 | 编程导航 (codefather.cn) | 技术文章/教程 | 无需密钥 |
 | 鱼皮AI导航 (ai.codefather.cn) | AI 课程/教程 | 无需密钥 |
 
@@ -47,12 +45,6 @@ cd client && npm install
 
 ```env
 SILICONFLOW_API_KEY=your-api-key
-YOUTUBE_API_KEY=your-youtube-api-key
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-NOTIFICATION_EMAIL=recipient@example.com
 ```
 
 ### 3. 启动服务
@@ -85,7 +77,7 @@ npm run dev
 ├── server/                  # 后端 (Express)
 │   └── src/
 │       ├── routes/         # API 路由
-│       ├── services/       # 业务服务 (数据源/评分/AI/通知)
+│       ├── services/       # 业务服务 (数据源/评分/AI)
 │       ├── db/             # SQLite 数据库
 │       └── types/          # 类型定义
 ├── docs/                    # 文档
