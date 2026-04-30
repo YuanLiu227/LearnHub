@@ -23,12 +23,14 @@ interface VideoStats {
   bvid: string;
   title: string;
   desc: string;
+  author: string;
   view: number;
   like: number;
   favorite: number;
   coin: number;
   danmaku: number;
   reply: number;
+  pubdate: number;
 }
 
 interface SearchResult {
@@ -71,12 +73,14 @@ export async function getBilibiliVideoStats(bvid: string): Promise<VideoStats | 
       bvid: d.bvid || bvid,
       title: d.title || '',
       desc: d.desc || '',
+      author: d.owner?.name || '',
       view: st.view || 0,
       like: st.like || 0,
       favorite: st.favorite || 0,
       coin: st.coin || 0,
       danmaku: st.danmaku || 0,
       reply: st.reply || 0,
+      pubdate: d.pubdate || 0,
     };
   } catch (err: any) {
     console.error(`[Bilibili] Stats request failed for ${bvid}:`, err.message);

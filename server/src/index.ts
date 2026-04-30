@@ -9,6 +9,7 @@ import monitorRouter, { runMonitorInBackground } from './routes/monitor.js';
 import configRouter from './routes/config.js';
 import docsRouter from './routes/docs.js';
 import dashboardRouter from './routes/dashboard.js';
+import creatorsRouter, { runCreatorCollection } from './routes/creators.js';
 
 // 加载环境变量 - 从 server 目录向上找 .env 文件
 const envPath = path.join(process.cwd(), '.env');
@@ -38,6 +39,7 @@ app.use('/api/monitor', monitorRouter);
 app.use('/api/config', configRouter);
 app.use('/api/docs', docsRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/creators', creatorsRouter);
 
 // 健康检查
 app.get('/api/health', (req, res) => {
@@ -47,14 +49,14 @@ app.get('/api/health', (req, res) => {
 // 测试环境变量
 app.get('/api/test-env', (req, res) => {
   res.json({
-    SILICONFLOW_API_KEY: process.env.SILICONFLOW_API_KEY ? 'set (length: ' + process.env.SILICONFLOW_API_KEY.length + ')' : 'not set',
+    DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY ? 'set (length: ' + process.env.DEEPSEEK_API_KEY.length + ')' : 'not set',
     FIRECRAWL_API_KEY: process.env.FIRECRAWL_API_KEY ? 'set' : 'not set',
   });
 });
 
 // 测试 veracity 检查
 app.get('/api/test-veracity', async (req, res) => {
-  const { checkVeracity } = await import('./services/siliconflow.js');
+  const { checkVeracity } = await import('./services/deepseek.js');
   try {
     const result = await checkVeracity(
       '测试标题：AI 技术新突破',
@@ -87,6 +89,13 @@ app.listen(PORT, () => {
 ╚═══════════════════════════════════════════════════════╝
   `);
 
+});
+
+// 每日定时任务：早上 8:00 自动收集博主内容
+import cron from 'node-cron';
+cron.schedule('0 8 * * *', () => {
+  console.log('[Cron] Running daily creator content collection at 08:00');
+  runCreatorCollection('scheduled_daily');
 });
 
 export default app;

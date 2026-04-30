@@ -11,7 +11,7 @@ export interface Keyword {
 
 export interface NewsItem {
   id: string;
-  keywordId: string;
+  keywordId?: string;
   keywordTerm?: string;
   title: string;
   url: string;
@@ -24,6 +24,23 @@ export interface NewsItem {
   matchedAt: number;
   isUrgent?: boolean;
   heat?: number;
+  creatorId?: string;
+  creatorName?: string;
+  completed?: boolean;
+  favorited?: boolean;
+}
+
+export interface FollowedCreator {
+  id: string;
+  platform: 'youtube' | 'bilibili';
+  channelId: string;
+  channelName: string;
+  description?: string;
+  avatarUrl?: string;
+  enabled: boolean;
+  createdAt: number;
+  lastFetchedAt?: number;
+  archived?: boolean;
 }
 
 export interface HotTopic {

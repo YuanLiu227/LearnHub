@@ -3,6 +3,7 @@ import db from '../db/sqlite.js';
 import { notify } from '../services/notifier.js';
 import { progressEmitter, type MonitorProgress } from '../services/progress.js';
 import { calcCombinedScore } from '../services/scoring.js';
+import { deduplicateItems } from '../services/dedup.js';
 import { searchBilibiliVideos, getBilibiliVideoStats, extractBVID } from '../services/bilibili-api.js';
 import { collectYouTubeVideos } from '../services/youtube-api.js';
 import { collectCodefatherArticles } from '../services/codefather-api.js';
@@ -59,6 +60,9 @@ router.get('/progress/:monitorId', (req, res) => {
     res.json({ stage: 'waiting', message: '等待进度更新...' });
   }
 });
+
+
+
 
 // 后台异步执行监控（导出供定时任务调用）
 export async function runMonitorInBackground(monitorId: string = `auto_${Date.now()}`) {
@@ -125,6 +129,7 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
             url: bResult.url,
             source: 'bilibili',
             sourceName: 'Bilibili',
+            author: stats.author,
             heat: heatScore,
             publishedAt: Date.now(),
             summary: `${stats.title} · 👁️${stats.view} 👍${stats.like} ⭐${stats.favorite}`,
@@ -171,6 +176,14 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
           }
         }
 
+        // 跨源去重：标题和作者相似则视为重复
+        const beforeDedup = allItems.length;
+        const deduped = deduplicateItems(allItems);
+        allItems.length = 0;
+        allItems.push(...deduped);
+        if (deduped.length < beforeDedup) {
+          console.log(`[Monitor] Deduplicated ${beforeDedup - deduped.length} items across sources`);
+        }
 
         // 对所有结果应用综合评分
         for (const item of allItems) {
@@ -250,6 +263,7 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
         console.error(`[Monitor] Error searching for keyword ${keyword.term}:`, error.message);
       }
     }
+
 
     emitProgress(monitorId, {
       stage: 'completed',

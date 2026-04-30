@@ -20,6 +20,27 @@ interface NewsItemRow {
   matched_at: number;
   is_urgent: number;
   heat: number;
+  creator_id: string | null;
+  creator_name: string | null;
+}
+
+interface HotTopicRow {
+  id: string;
+  keyword_id: null;
+  title: string;
+  url: string;
+  source: string;
+  source_name: string;
+  published_at: number;
+  is_real: number;
+  confidence: number;
+  summary: string | null;
+  matched_at: number;
+  is_urgent: number;
+  heat: number;
+  keyword_term: null;
+  creator_id: null;
+  creator_name: null;
 }
 
 const router = Router();
@@ -98,6 +119,10 @@ router.get('/hotspots', (req, res) => {
       matchedAt: row.matched_at,
       isUrgent: Boolean(row.is_urgent),
       heat: row.heat,
+      creatorId: row.creator_id || undefined,
+      creatorName: row.creator_name || undefined,
+      completed: Boolean(row.completed),
+      favorited: Boolean(row.favorited),
     }));
 
     res.json({ items, total: countResult.count, page: Number(page), pageSize: Number(pageSize) });
@@ -134,7 +159,8 @@ router.get('/search', (req, res) => {
         id, NULL as keyword_id, title, url, source, source_name,
         published_at, 1 as is_real, 1.0 as confidence, summary,
         fetched_at as matched_at, 0 as is_urgent, heat,
-        NULL as keyword_term, 'hot' as _data_type
+        NULL as keyword_term, 'hot' as _data_type,
+        NULL as creator_id, NULL as creator_name
       FROM hot_topics
       WHERE title LIKE ? OR summary LIKE ?
       ORDER BY fetched_at DESC
@@ -162,7 +188,7 @@ router.get('/search', (req, res) => {
       )
     `).get(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm) as CountRow).count;
 
-    const items = merged.map((row: NewsItemRow | HotTopicRow) => ({
+    const items = merged.map((row: any) => ({
       id: row.id,
       keywordId: row.keyword_id,
       keywordTerm: row.keyword_term,
@@ -177,6 +203,10 @@ router.get('/search', (req, res) => {
       matchedAt: row.matched_at,
       isUrgent: Boolean(row.is_urgent),
       heat: row.heat,
+      creatorId: row.creator_id || undefined,
+      creatorName: row.creator_name || undefined,
+      completed: Boolean(row.completed),
+      favorited: Boolean(row.favorited),
     }));
 
     res.json({
@@ -188,6 +218,142 @@ router.get('/search', (req, res) => {
   } catch (error) {
     console.error('Search error:', error);
     res.status(500).json({ error: 'Failed to search' });
+  }
+});
+
+// 更新资源（完成状态、收藏状态等）
+router.patch('/resource/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { completed, favorited } = req.body;
+
+    // 取消收藏时检查关联实体是否存在
+    if (favorited === false) {
+      const item = db.prepare('SELECT keyword_id, creator_id FROM news_items WHERE id = ?').get(id) as any;
+      if (item) {
+        let hasAssociation = false;
+        let allGone = true;
+        if (item.keyword_id) {
+          hasAssociation = true;
+          if (db.prepare('SELECT id FROM keywords WHERE id = ?').get(item.keyword_id)) {
+            allGone = false;
+          }
+        }
+        if (item.creator_id) {
+          hasAssociation = true;
+          if (db.prepare('SELECT id FROM followed_creators WHERE id = ?').get(item.creator_id)) {
+            allGone = false;
+          }
+        }
+        if (hasAssociation && allGone) {
+          db.prepare('DELETE FROM news_items WHERE id = ?').run(id);
+          return res.json({ success: true, deleted: true });
+        }
+      }
+    }
+
+    const updates: string[] = [];
+    const params: any[] = [];
+
+    if (completed !== undefined) {
+      updates.push('completed = ?');
+      params.push(completed ? 1 : 0);
+    }
+    if (favorited !== undefined) {
+      updates.push('favorited = ?');
+      params.push(favorited ? 1 : 0);
+    }
+
+    if (updates.length > 0) {
+      params.push(id);
+      db.prepare(`UPDATE news_items SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update resource error:', error);
+    res.status(500).json({ error: 'Failed to update resource' });
+  }
+});
+
+// 获取收藏资源
+router.get('/favorites', (req, res) => {
+  try {
+    const { page = 1, pageSize = 20 } = req.query;
+    const offset = (Number(page) - 1) * Number(pageSize);
+
+    const rows = db.prepare(`
+      SELECT n.*, k.term as keyword_term
+      FROM news_items n
+      LEFT JOIN keywords k ON n.keyword_id = k.id
+      WHERE n.favorited = 1
+      ORDER BY n.matched_at DESC
+      LIMIT ? OFFSET ?
+    `).all(Number(pageSize), offset);
+
+    const countResult = db.prepare(`
+      SELECT COUNT(*) as count FROM news_items WHERE favorited = 1
+    `).get() as CountRow;
+
+    const items = rows.map((row: any) => ({
+      id: row.id,
+      keywordId: row.keyword_id,
+      keywordTerm: row.keyword_term,
+      title: row.title,
+      url: row.url,
+      source: row.source,
+      sourceName: row.source_name,
+      publishedAt: row.published_at,
+      isReal: Boolean(row.is_real),
+      confidence: row.confidence,
+      summary: row.summary,
+      matchedAt: row.matched_at,
+      isUrgent: Boolean(row.is_urgent),
+      heat: row.heat,
+      creatorId: row.creator_id || undefined,
+      creatorName: row.creator_name || undefined,
+      completed: Boolean(row.completed),
+      favorited: Boolean(row.favorited),
+    }));
+
+    res.json({ items, total: countResult.count, page: Number(page), pageSize: Number(pageSize) });
+  } catch (error) {
+    console.error('Favorites error:', error);
+    res.status(500).json({ error: 'Failed to fetch favorites' });
+  }
+});
+
+// 批量删除资源（按 ID）
+router.post('/resources/batch-delete-by-ids', (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids must be a non-empty array' });
+    }
+    const placeholders = ids.map(() => '?').join(',');
+    db.prepare(`DELETE FROM news_items WHERE id IN (${placeholders})`).run(...ids);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Batch delete by ids error:', error);
+    res.status(500).json({ error: 'Failed to batch delete resources' });
+  }
+});
+
+// 批量删除资源（按类型）
+router.post('/resources/batch-delete', (req, res) => {
+  try {
+    const { type } = req.body;
+    if (type === 'keywords') {
+      db.prepare('DELETE FROM news_items WHERE keyword_id IS NOT NULL').run();
+    } else if (type === 'creators') {
+      db.prepare('DELETE FROM news_items WHERE creator_id IS NOT NULL').run();
+    } else {
+      return res.status(400).json({ error: 'Invalid type, must be "keywords" or "creators"' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Batch delete error:', error);
+    res.status(500).json({ error: 'Failed to batch delete resources' });
   }
 });
 

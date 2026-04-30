@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { ChatMessage, VeracityResult } from '../types/index.js';
 import { getContext7Docs } from './context7-mcp.js';
 
-const SILICONFLOW_API_URL = 'https://api.siliconflow.cn/v1/chat/completions';
+const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
 interface AIResponse {
   choices: Array<{
@@ -14,19 +14,19 @@ interface AIResponse {
 
 export async function chat(
   messages: ChatMessage[],
-  model: string = 'deepseek-ai/DeepSeek-V3'
+  model: string = 'deepseek-chat'
 ): Promise<string> {
-  const apiKey = process.env.SILICONFLOW_API_KEY;
+  const apiKey = process.env.DEEPSEEK_API_KEY;
 
   if (!apiKey) {
-    throw new Error('SILICONFLOW_API_KEY is not configured');
+    throw new Error('DEEPSEEK_API_KEY is not configured');
   }
 
   let retries = 3;
   while (retries > 0) {
     try {
       const response = await axios.post<AIResponse>(
-        SILICONFLOW_API_URL,
+        DEEPSEEK_API_URL,
         {
           model,
           messages,
@@ -44,15 +44,15 @@ export async function chat(
     } catch (error: any) {
       retries--;
       if (retries === 0) {
-        console.error('SiliconFlow API error:', error.response?.data || error.message);
-        throw new Error('Failed to call SiliconFlow API');
+        console.error('DeepSeek API error:', error.response?.data || error.message);
+        throw new Error('Failed to call DeepSeek API');
       }
       console.log(`Retrying... (${retries} attempts left)`);
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
 
-  throw new Error('SiliconFlow API failed');
+  throw new Error('DeepSeek API failed');
 }
 
 /**
@@ -99,7 +99,7 @@ Respond with isRelevant:true only if the content is clearly about AI topics.`;
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      'deepseek-ai/DeepSeek-V3'
+      'deepseek-chat'
     );
 
     const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -167,7 +167,7 @@ score: 0.0-1.0 where 1.0 is highest quality, substantive content`;
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      'deepseek-ai/DeepSeek-V3'
+      'deepseek-chat'
     );
 
     const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -204,7 +204,7 @@ export async function checkVeracity(
   content: string,
   url: string
 ): Promise<VeracityResult> {
-  const apiKey = process.env.SILICONFLOW_API_KEY;
+  const apiKey = process.env.DEEPSEEK_API_KEY;
 
   const systemPrompt = `You are a fact-checker AI. Analyze the given content and determine if it appears to be real news or potentially fake/misleading content.
 
@@ -225,7 +225,7 @@ Consider:
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      'deepseek-ai/DeepSeek-V3'
+      'deepseek-chat'
     );
 
     // Try to parse JSON response
@@ -272,7 +272,7 @@ export async function summarizeContent(content: string): Promise<string> {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: content },
       ],
-      'deepseek-ai/DeepSeek-V3'
+      'deepseek-chat'
     );
     return summary;
   } catch (error) {
@@ -306,7 +306,7 @@ Respond in JSON format with:
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Title: ${title}\n\nContent: ${content}` },
       ],
-      'deepseek-ai/DeepSeek-V3'
+      'deepseek-chat'
     );
 
     const jsonMatch = response.match(/\{[\s\S]*\}/);

@@ -14,6 +14,10 @@
     "install:all": "npm install && cd client && npm install && cd ../server && npm install"
   },
   "dependencies": {
-    "https-proxy-agent": "^9.0.0"
+    "https-proxy-agent": "^9.0.0",
+    "node-cron": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/node-cron": "^3.0.11"
   }
 }

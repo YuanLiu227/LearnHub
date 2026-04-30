@@ -31,7 +31,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS news_items (
     id TEXT PRIMARY KEY,
-    keyword_id TEXT NOT NULL,
+    keyword_id TEXT,
     title TEXT NOT NULL,
     url TEXT NOT NULL,
     source TEXT NOT NULL,
@@ -43,7 +43,8 @@ db.exec(`
     matched_at INTEGER NOT NULL,
     is_urgent INTEGER DEFAULT 0,
     heat REAL DEFAULT 50,
-    FOREIGN KEY (keyword_id) REFERENCES keywords(id)
+    creator_id TEXT,
+    creator_name TEXT
   );
 
   CREATE TABLE IF NOT EXISTS hot_topics (
@@ -63,23 +64,62 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS followed_creators (
+    id TEXT PRIMARY KEY,
+    platform TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    channel_name TEXT NOT NULL,
+    description TEXT,
+    avatar_url TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at INTEGER NOT NULL,
+    last_fetched_at INTEGER,
+    UNIQUE(platform, channel_id)
+  );
 `);
 
-// 迁移已有数据库：添加新字段
+// 迁移已有数据库
+try { db.exec(`ALTER TABLE news_items ADD COLUMN is_urgent INTEGER DEFAULT 0`); } catch (e) {}
+try { db.exec(`ALTER TABLE news_items ADD COLUMN heat REAL DEFAULT 50`); } catch (e) {}
+try { db.exec(`ALTER TABLE keywords ADD COLUMN archived INTEGER DEFAULT 0`); } catch (e) {}
+try { db.exec(`ALTER TABLE news_items ADD COLUMN creator_id TEXT`); } catch (e) {}
+try { db.exec(`ALTER TABLE news_items ADD COLUMN creator_name TEXT`); } catch (e) {}
+try { db.exec(`ALTER TABLE followed_creators ADD COLUMN archived INTEGER DEFAULT 0`); } catch (e) {}
+try { db.exec(`ALTER TABLE news_items ADD COLUMN completed INTEGER DEFAULT 0`); } catch (e) {}
+try { db.exec(`ALTER TABLE news_items ADD COLUMN favorited INTEGER DEFAULT 0`); } catch (e) {}
+
+// 迁移：如果 keyword_id 为 NOT NULL，则重建 news_items 表以支持空值
 try {
-  db.exec(`ALTER TABLE news_items ADD COLUMN is_urgent INTEGER DEFAULT 0`);
-} catch (e) {
-  // 字段可能已存在
-}
-try {
-  db.exec(`ALTER TABLE news_items ADD COLUMN heat REAL DEFAULT 50`);
-} catch (e) {
-  // 字段可能已存在
-}
-try {
-  db.exec(`ALTER TABLE keywords ADD COLUMN archived INTEGER DEFAULT 0`);
-} catch (e) {
-  // 字段可能已存在
+  const cols = db.prepare("PRAGMA table_info('news_items')").all() as any[];
+  const kwCol = cols.find((c: any) => c.name === 'keyword_id');
+  if (kwCol && kwCol.notnull === 1) {
+    db.exec(`
+      CREATE TABLE news_items_new (
+        id TEXT PRIMARY KEY,
+        keyword_id TEXT,
+        title TEXT NOT NULL,
+        url TEXT NOT NULL,
+        source TEXT NOT NULL,
+        source_name TEXT NOT NULL,
+        published_at INTEGER NOT NULL,
+        is_real INTEGER NOT NULL,
+        confidence REAL NOT NULL,
+        summary TEXT,
+        matched_at INTEGER NOT NULL,
+        is_urgent INTEGER DEFAULT 0,
+        heat REAL DEFAULT 50,
+        creator_id TEXT,
+        creator_name TEXT
+      );
+      INSERT INTO news_items_new SELECT * FROM news_items;
+      DROP TABLE news_items;
+      ALTER TABLE news_items_new RENAME TO news_items;
+    `);
+    console.log('[DB] Migrated news_items: keyword_id is now nullable');
+  }
+} catch (e: any) {
+  console.error('[DB] Migration error:', e.message);
 }
 
 export default db;

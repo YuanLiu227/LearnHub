@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Archive, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,7 @@ export function KeywordList() {
   const keywords = useAppStore(state => state.keywords);
   const archiveKeyword = useAppStore(state => state.archiveKeyword);
   const toggleKeyword = useAppStore(state => state.toggleKeyword);
+  const [confirmingArchive, setConfirmingArchive] = useState<string | null>(null);
 
   if (keywords.length === 0) {
     return (
@@ -54,15 +56,32 @@ export function KeywordList() {
                 <ToggleLeft className="w-4 h-4 text-text-tertiary" />
               )}
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => archiveKeyword(keyword.id)}
-              className="p-1.5 hover:text-yellow-400"
-              title="归档关键词（保留学习资源）"
-            >
-              <Archive className="w-4 h-4" />
-            </Button>
+            {confirmingArchive === keyword.id ? (
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => { archiveKeyword(keyword.id); setConfirmingArchive(null); }}
+                  className="px-2 py-1 text-xs bg-amber-500/20 text-amber-400 rounded hover:bg-amber-500/30 transition-colors"
+                >
+                  确认归档
+                </button>
+                <button
+                  onClick={() => setConfirmingArchive(null)}
+                  className="px-2 py-1 text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+                >
+                  取消
+                </button>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmingArchive(keyword.id)}
+                className="p-1.5 hover:text-yellow-400"
+                title="归档关键词（保留学习资源）"
+              >
+                <Archive className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </Card>
       ))}

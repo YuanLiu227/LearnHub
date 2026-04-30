@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { chat, checkVeracity } from '../services/siliconflow.js';
+import { chat, checkVeracity } from '../services/deepseek.js';
 
 const router = Router();
 

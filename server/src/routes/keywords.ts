@@ -64,6 +64,12 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'term is required' });
     }
 
+    // 检查是否已存在相同关键词
+    const existing = db.prepare('SELECT id FROM keywords WHERE term = ?').get(term);
+    if (existing) {
+      return res.status(409).json({ error: '关键词已存在' });
+    }
+
     const id = generateId();
     const createdAt = Date.now();
 
@@ -93,13 +99,26 @@ router.post('/archive', (req, res) => {
   }
 });
 
+// 恢复归档关键词
+router.post('/restore', (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ error: 'id is required' });
+    db.prepare('UPDATE keywords SET archived = 0, enabled = 1 WHERE id = ?').run(id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error restoring keyword:', error);
+    res.status(500).json({ error: 'Failed to restore keyword' });
+  }
+});
+
 // 永久删除关键词 + 关联资源
 router.delete('/permanent', (req, res) => {
   try {
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'id is required' });
 
-    db.prepare('DELETE FROM news_items WHERE keyword_id = ?').run(id);
+    db.prepare("DELETE FROM news_items WHERE keyword_id = ? AND (favorited IS NOT 1 OR favorited IS NULL)").run(id);
     db.prepare('DELETE FROM keywords WHERE id = ?').run(id);
     res.json({ success: true });
   } catch (error) {
