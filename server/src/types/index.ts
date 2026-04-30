@@ -35,6 +35,7 @@ export interface FollowedCreator {
   description?: string;
   avatarUrl?: string;
   enabled: boolean;
+  archived: boolean;
   createdAt: number;
   lastFetchedAt?: number;
 }

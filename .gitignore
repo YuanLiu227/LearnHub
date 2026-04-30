@@ -46,3 +46,4 @@ empty_kw.json
 exact_kw.json
 course_articles.json
 essay_chunk.js
+server/test_enc.mjs

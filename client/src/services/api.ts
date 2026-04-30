@@ -8,6 +8,58 @@ const api = axios.create({
   timeout: 300000, // 5 分钟
 });
 
+// 自动注入 token
+const token = localStorage.getItem('token');
+if (token) {
+  api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+}
+
+// 401 时自动跳转登录
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      delete api.defaults.headers.common['Authorization'];
+      window.location.reload();
+    }
+    return Promise.reject(error);
+  },
+);
+
+// Auth API
+export const authApi = {
+  getCaptcha: async (): Promise<{ captchaId: string; svg: string }> => {
+    const response = await api.get('/auth/captcha');
+    return response.data;
+  },
+
+  login: async (email: string, password: string, captchaId: string, captchaCode: string): Promise<{ token: string; user: { id: string; email: string } }> => {
+    const response = await api.post('/auth/login', { email, password, captchaId, captchaCode });
+    return response.data;
+  },
+
+  register: async (email: string, password: string, captchaId: string, captchaCode: string): Promise<{ success: boolean; message: string; devCode?: string }> => {
+    const response = await api.post('/auth/register', { email, password, captchaId, captchaCode });
+    return response.data;
+  },
+
+  verifyRegistration: async (email: string, code: string, password: string, captchaId: string, captchaCode: string): Promise<{ token: string; user: { id: string; email: string } }> => {
+    const response = await api.post('/auth/register/verify', { email, code, password, captchaId, captchaCode });
+    return response.data;
+  },
+
+  resendCode: async (email: string, captchaId: string, captchaCode: string): Promise<{ success: boolean; message: string }> => {
+    const response = await api.post('/auth/resend-code', { email, captchaId, captchaCode });
+    return response.data;
+  },
+
+  me: async (): Promise<{ user: { id: string; email: string } }> => {
+    const response = await api.get('/auth/me');
+    return response.data;
+  },
+};
+
 // 关键词 API
 export const keywordsApi = {
   getAll: async (): Promise<Keyword[]> => {

@@ -5,6 +5,7 @@ import { progressEmitter, type MonitorProgress } from '../services/progress.js';
 import { deduplicateItems } from '../services/dedup.js';
 import { notify } from '../services/notifier.js';
 import type { FollowedCreator } from '../types/index.js';
+import { authRequired, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -28,11 +29,11 @@ function toFollowedCreator(row: any): FollowedCreator {
 }
 
 // 获取所有未归档的博主
-router.get('/', (req, res) => {
+router.get('/', authRequired, (req: AuthRequest, res) => {
   try {
     const rows = db.prepare(
-      'SELECT * FROM followed_creators WHERE archived IS NOT 1 ORDER BY created_at DESC',
-    ).all();
+      'SELECT * FROM followed_creators WHERE archived IS NOT 1 AND user_id = ? ORDER BY created_at DESC',
+    ).all(req.user!.userId);
     res.json({ creators: rows.map(toFollowedCreator) });
   } catch (error) {
     console.error('[Creators] Error fetching:', error);
@@ -41,11 +42,11 @@ router.get('/', (req, res) => {
 });
 
 // 获取所有博主（含已归档）
-router.get('/all', (req, res) => {
+router.get('/all', authRequired, (req: AuthRequest, res) => {
   try {
     const rows = db.prepare(
-      'SELECT * FROM followed_creators ORDER BY archived ASC, created_at DESC',
-    ).all();
+      'SELECT * FROM followed_creators WHERE user_id = ? ORDER BY archived ASC, created_at DESC',
+    ).all(req.user!.userId);
     res.json({ creators: rows.map(toFollowedCreator) });
   } catch (error) {
     console.error('[Creators] Error fetching all:', error);
@@ -54,7 +55,7 @@ router.get('/all', (req, res) => {
 });
 
 // 添加关注的博主（自动解析）
-router.post('/', async (req, res) => {
+router.post('/', authRequired, async (req: AuthRequest, res) => {
   try {
     const { platform, query } = req.body;
     if (!platform || !query) {
@@ -89,8 +90,8 @@ router.post('/', async (req, res) => {
 
     // 检查是否已关注
     const existing = db.prepare(
-      'SELECT id FROM followed_creators WHERE platform = ? AND channel_id = ?',
-    ).get(platform, channelId);
+      'SELECT id FROM followed_creators WHERE platform = ? AND channel_id = ? AND user_id = ?',
+    ).get(platform, channelId, req.user!.userId);
     if (existing) {
       return res.status(409).json({ error: `已关注该${platform === 'bilibili' ? 'UP 主' : '频道'}` });
     }
@@ -99,9 +100,9 @@ router.post('/', async (req, res) => {
     const createdAt = Date.now();
 
     db.prepare(`
-      INSERT INTO followed_creators (id, platform, channel_id, channel_name, avatar_url, enabled, created_at)
-      VALUES (?, ?, ?, ?, ?, 1, ?)
-    `).run(id, platform, channelId, channelName, avatarUrl, createdAt);
+      INSERT INTO followed_creators (id, platform, channel_id, channel_name, avatar_url, enabled, created_at, user_id)
+      VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+    `).run(id, platform, channelId, channelName, avatarUrl, createdAt, req.user!.userId);
 
     res.status(201).json(toFollowedCreator({
       id, platform, channel_id: channelId, channel_name: channelName,
@@ -114,16 +115,16 @@ router.post('/', async (req, res) => {
 });
 
 // 更新关注的博主（启用/禁用等）
-router.patch('/:id', (req, res) => {
+router.patch('/:id', authRequired, (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { enabled } = req.body;
 
     if (enabled !== undefined) {
-      db.prepare('UPDATE followed_creators SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, id);
+      db.prepare('UPDATE followed_creators SET enabled = ? WHERE id = ? AND user_id = ?').run(enabled ? 1 : 0, id, req.user!.userId);
     }
 
-    const row = db.prepare('SELECT * FROM followed_creators WHERE id = ?').get(id) as any;
+    const row = db.prepare('SELECT * FROM followed_creators WHERE id = ? AND user_id = ?').get(id, req.user!.userId) as any;
     if (!row) return res.status(404).json({ error: '未找到该博主' });
 
     res.json(toFollowedCreator(row));
@@ -134,10 +135,10 @@ router.patch('/:id', (req, res) => {
 });
 
 // 取消关注（归档，保留学习资源）
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authRequired, (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    db.prepare('UPDATE followed_creators SET archived = 1, enabled = 0 WHERE id = ?').run(id);
+    db.prepare('UPDATE followed_creators SET archived = 1, enabled = 0 WHERE id = ? AND user_id = ?').run(id, req.user!.userId);
     res.json({ success: true });
   } catch (error) {
     console.error('[Creators] Error archiving:', error);
@@ -146,10 +147,10 @@ router.delete('/:id', (req, res) => {
 });
 
 // 恢复归档博主
-router.post('/restore/:id', (req, res) => {
+router.post('/restore/:id', authRequired, (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    db.prepare('UPDATE followed_creators SET archived = 0, enabled = 1 WHERE id = ?').run(id);
+    db.prepare('UPDATE followed_creators SET archived = 0, enabled = 1 WHERE id = ? AND user_id = ?').run(id, req.user!.userId);
     res.json({ success: true });
   } catch (error) {
     console.error('[Creators] Error restoring:', error);
@@ -158,11 +159,11 @@ router.post('/restore/:id', (req, res) => {
 });
 
 // 永久删除博主及其关联的所有内容
-router.delete('/permanent/:id', (req, res) => {
+router.delete('/permanent/:id', authRequired, (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    db.prepare("DELETE FROM news_items WHERE creator_id = ? AND (favorited IS NOT 1 OR favorited IS NULL)").run(id);
-    db.prepare('DELETE FROM followed_creators WHERE id = ?').run(id);
+    db.prepare("DELETE FROM news_items WHERE creator_id = ? AND (favorited IS NOT 1 OR favorited IS NULL) AND user_id = ?").run(id, req.user!.userId);
+    db.prepare('DELETE FROM followed_creators WHERE id = ? AND user_id = ?').run(id, req.user!.userId);
     res.json({ success: true });
   } catch (error) {
     console.error('[Creators] Error permanent deleting:', error);
@@ -183,7 +184,7 @@ function emitProgress(collectId: string, progress: MonitorProgress) {
 /**
  * 后台收集博主内容（供 API 和定时任务共用）
  */
-export async function runCreatorCollection(collectId: string = `creator_${Date.now()}`) {
+export async function runCreatorCollection(collectId: string = `creator_${Date.now()}`, userId?: string) {
   let matchedCount = 0;
   let verifiedCount = 0;
 
@@ -191,7 +192,9 @@ export async function runCreatorCollection(collectId: string = `creator_${Date.n
     emitProgress(collectId, { stage: 'started', message: '开始收集博主内容...' });
     console.log(`[CreatorCollect] Started: ${collectId}`);
 
-    const creatorRows = db.prepare('SELECT * FROM followed_creators WHERE enabled = 1').all() as any[];
+    const creatorRows = userId
+      ? db.prepare('SELECT * FROM followed_creators WHERE enabled = 1 AND user_id = ?').all(userId) as any[]
+      : db.prepare('SELECT * FROM followed_creators WHERE enabled = 1').all() as any[];
     if (creatorRows.length === 0) {
       emitProgress(collectId, {
         stage: 'completed', message: '没有启用的博主', matched: 0, verified: 0,
@@ -251,8 +254,8 @@ export async function runCreatorCollection(collectId: string = `creator_${Date.n
 
           db.prepare(`
             INSERT INTO news_items
-            (id, keyword_id, title, url, source, source_name, published_at, is_real, confidence, summary, matched_at, heat, creator_id, creator_name)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, keyword_id, title, url, source, source_name, published_at, is_real, confidence, summary, matched_at, heat, creator_id, creator_name, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
             id,
             null,
@@ -268,6 +271,7 @@ export async function runCreatorCollection(collectId: string = `creator_${Date.n
             itemHeat,
             item._creatorId || null,
             item._creatorName || null,
+            userId || null,
           );
 
           verifiedCount++;
@@ -312,7 +316,7 @@ export async function runCreatorCollection(collectId: string = `creator_${Date.n
 }
 
 // POST /collect - 手动触发收集博主内容
-router.post('/collect', (_req, res) => {
+router.post('/collect', authRequired, (req: AuthRequest, res) => {
   const collectId = `creator_${Date.now()}`;
 
   res.json({
@@ -322,7 +326,7 @@ router.post('/collect', (_req, res) => {
     timestamp: Date.now(),
   });
 
-  runCreatorCollection(collectId);
+  runCreatorCollection(collectId, req.user!.userId);
 });
 
 // 收集进度查询

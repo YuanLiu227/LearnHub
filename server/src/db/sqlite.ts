@@ -77,6 +77,23 @@ db.exec(`
     last_fetched_at INTEGER,
     UNIQUE(platform, channel_id)
   );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS verification_codes (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    code TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'register',
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0
+  );
 `);
 
 // 迁移已有数据库
@@ -88,6 +105,11 @@ try { db.exec(`ALTER TABLE news_items ADD COLUMN creator_name TEXT`); } catch (e
 try { db.exec(`ALTER TABLE followed_creators ADD COLUMN archived INTEGER DEFAULT 0`); } catch (e) {}
 try { db.exec(`ALTER TABLE news_items ADD COLUMN completed INTEGER DEFAULT 0`); } catch (e) {}
 try { db.exec(`ALTER TABLE news_items ADD COLUMN favorited INTEGER DEFAULT 0`); } catch (e) {}
+try { db.exec(`ALTER TABLE keywords ADD COLUMN user_id TEXT`); } catch (e) {}
+try { db.exec(`ALTER TABLE news_items ADD COLUMN user_id TEXT`); } catch (e) {}
+try { db.exec(`ALTER TABLE followed_creators ADD COLUMN user_id TEXT`); } catch (e) {}
+try { db.exec(`ALTER TABLE config ADD COLUMN user_id TEXT`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT`); } catch (e) {}
 
 // 迁移：如果 keyword_id 为 NOT NULL，则重建 news_items 表以支持空值
 try {

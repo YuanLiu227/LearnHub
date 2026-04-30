@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Keyword, NewsItem, AppConfig, MonitorProgress, FollowedCreator } from '../types';
-import { keywordsApi, monitorApi, dashboardApi, searchApi, configApi, creatorsApi } from '../services/api';
+import api, { keywordsApi, monitorApi, dashboardApi, searchApi, configApi, creatorsApi, authApi } from '../services/api';
 
 export type TabType = 'dashboard' | 'keywords' | 'overview' | 'search' | 'favorites';
 
@@ -12,6 +12,16 @@ interface DashboardStats {
 }
 
 interface AppState {
+  // Auth 状态
+  user: { id: string; email: string } | null;
+  token: string | null;
+  isAuthReady: boolean;
+  login: (email: string, password: string, captchaId: string, captchaCode: string) => Promise<void>;
+  sendRegisterCode: (email: string, password: string, captchaId: string, captchaCode: string) => Promise<{ devCode?: string }>;
+  verifyRegisterCode: (email: string, code: string, password: string, captchaId: string, captchaCode: string) => Promise<void>;
+  logout: () => void;
+  checkAuth: () => Promise<void>;
+
   // Tab 状态
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
@@ -83,7 +93,56 @@ interface AppState {
   clearError: () => void;
 }
 
+const storedToken = localStorage.getItem('token');
+
 export const useAppStore = create<AppState>((set, get) => ({
+  // Auth 状态
+  user: null,
+  token: storedToken,
+  isAuthReady: false,
+
+  login: async (email: string, password: string, captchaId: string, captchaCode: string) => {
+    const data = await authApi.login(email, password, captchaId, captchaCode);
+    localStorage.setItem('token', data.token);
+    api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+    set({ user: data.user, token: data.token, error: null });
+  },
+
+  sendRegisterCode: async (email: string, password: string, captchaId: string, captchaCode: string): Promise<{ devCode?: string }> => {
+    const data = await authApi.register(email, password, captchaId, captchaCode);
+    return data;
+  },
+
+  verifyRegisterCode: async (email: string, code: string, password: string, captchaId: string, captchaCode: string) => {
+    const data = await authApi.verifyRegistration(email, code, password, captchaId, captchaCode);
+    localStorage.setItem('token', data.token);
+    api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+    set({ user: data.user, token: data.token, error: null });
+  },
+
+  logout: () => {
+    localStorage.removeItem('token');
+    delete api.defaults.headers.common['Authorization'];
+    set({ user: null, token: null, error: null });
+  },
+
+  checkAuth: async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      set({ isAuthReady: true, user: null, token: null });
+      return;
+    }
+    try {
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      const data = await authApi.me();
+      set({ user: data.user, token, isAuthReady: true });
+    } catch {
+      localStorage.removeItem('token');
+      delete api.defaults.headers.common['Authorization'];
+      set({ user: null, token: null, isAuthReady: true });
+    }
+  },
+
   // Tab 状态
   activeTab: 'search',
   setActiveTab: (tab) => set({ activeTab: tab }),

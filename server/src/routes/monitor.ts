@@ -8,6 +8,7 @@ import { searchBilibiliVideos, getBilibiliVideoStats, extractBVID } from '../ser
 import { collectYouTubeVideos } from '../services/youtube-api.js';
 import { collectCodefatherArticles } from '../services/codefather-api.js';
 import { collectAiCodefatherArticles } from '../services/ai-codefather-api.js';
+import { authRequired, type AuthRequest } from '../middleware/auth.js';
 
 interface DbKeywordRow {
   id: string;
@@ -30,7 +31,7 @@ function emitProgress(monitorId: string, progress: MonitorProgress) {
 }
 
 // 手动触发监控（完全异步）
-router.post('/', async (_req, res) => {
+router.post('/', authRequired, async (req: AuthRequest, res) => {
   const monitorId = `monitor_${Date.now()}`;
 
   // 立即返回，不等待任何处理
@@ -42,7 +43,7 @@ router.post('/', async (_req, res) => {
   });
 
   // 完全在后台异步执行
-  runMonitorInBackground(monitorId);
+  runMonitorInBackground(monitorId, req.user!.userId);
 });
 
 // 进度查询端点
@@ -65,7 +66,7 @@ router.get('/progress/:monitorId', (req, res) => {
 
 
 // 后台异步执行监控（导出供定时任务调用）
-export async function runMonitorInBackground(monitorId: string = `auto_${Date.now()}`) {
+export async function runMonitorInBackground(monitorId: string = `auto_${Date.now()}`, userId?: string) {
   let matchedCount = 0;
   let verifiedCount = 0;
 
@@ -78,7 +79,9 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
     console.log('[Monitor] Background monitoring started');
 
     // 获取所有启用的关键词
-    const keywords = db.prepare('SELECT * FROM keywords WHERE enabled = 1 AND archived IS NOT 1').all() as DbKeywordRow[];
+    const keywords = userId
+      ? db.prepare('SELECT * FROM keywords WHERE enabled = 1 AND archived IS NOT 1 AND user_id = ?').all(userId) as DbKeywordRow[]
+      : db.prepare('SELECT * FROM keywords WHERE enabled = 1 AND archived IS NOT 1').all() as DbKeywordRow[];
 
     if (keywords.length === 0) {
       emitProgress(monitorId, {
@@ -221,8 +224,8 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
 
               db.prepare(`
                 INSERT INTO news_items
-                (id, keyword_id, title, url, source, source_name, published_at, is_real, confidence, summary, matched_at, heat)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id, keyword_id, title, url, source, source_name, published_at, is_real, confidence, summary, matched_at, heat, user_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).run(
                 id,
                 keyword.id,
@@ -235,7 +238,8 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
                 0.7,
                 item.summary || item.description || '',
                 matchedAt,
-                item.heat ?? 50
+                item.heat ?? 50,
+                userId || null
               );
 
               verifiedCount++;
@@ -289,16 +293,20 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
 }
 
 // 获取匹配历史
-router.get('/history', (req, res) => {
+router.get('/history', authRequired, (req: AuthRequest, res) => {
   try {
     const { keywordId, limit = 20 } = req.query;
+    const userId = req.user!.userId;
 
     let query = `SELECT * FROM news_items`;
     const params: any[] = [];
 
     if (keywordId) {
-      query += ` WHERE keyword_id = ?`;
-      params.push(keywordId);
+      query += ` WHERE keyword_id = ? AND user_id = ?`;
+      params.push(keywordId, userId);
+    } else {
+      query += ` WHERE user_id = ?`;
+      params.push(userId);
     }
 
     query += ` ORDER BY matched_at DESC LIMIT ?`;

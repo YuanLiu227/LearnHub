@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { LoginPage } from './LoginPage';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
@@ -971,14 +972,26 @@ export function Home() {
     clearNewResourceItems,
     error,
     clearError,
+    user,
+    token,
+    isAuthReady,
+    checkAuth,
+    logout,
   } = useAppStore();
 
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
     requestNotificationPermission();
   }, []);
+
+  if (!isAuthReady) return null;
+  if (!token || !user) return <LoginPage />;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1017,6 +1030,15 @@ export function Home() {
             </div>
 
             <div className="flex items-center gap-2" ref={panelRef}>
+              {/* 用户信息 */}
+              <span className="text-xs text-text-tertiary hidden sm:block">{user?.email}</span>
+              <button
+                onClick={logout}
+                className="text-xs text-text-tertiary hover:text-text transition-colors mr-1"
+                title="退出登录"
+              >
+                退出
+              </button>
               {/* 通知按钮 */}
               <button
                 onClick={() => setShowNotificationPanel(!showNotificationPanel)}

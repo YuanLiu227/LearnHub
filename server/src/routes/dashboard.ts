@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db/sqlite.js';
+import { authRequired, type AuthRequest } from '../middleware/auth.js';
 
 interface CountRow {
   count: number;
@@ -22,6 +23,8 @@ interface NewsItemRow {
   heat: number;
   creator_id: string | null;
   creator_name: string | null;
+  completed?: number;
+  favorited?: number;
 }
 
 interface HotTopicRow {
@@ -53,15 +56,16 @@ interface DashboardStats {
 }
 
 // 获取仪表盘统计数据
-router.get('/stats', (_req, res) => {
+router.get('/stats', authRequired, (req: AuthRequest, res) => {
   try {
     const now = Date.now();
     const todayStart = new Date().setHours(0, 0, 0, 0);
+    const userId = req.user!.userId;
 
-    const totalHotspots = (db.prepare('SELECT COUNT(*) as count FROM news_items').get() as CountRow).count;
-    const todayNew = (db.prepare('SELECT COUNT(*) as count FROM news_items WHERE matched_at > ?').get(todayStart) as CountRow).count;
-    const urgentHot = (db.prepare('SELECT COUNT(*) as count FROM news_items WHERE is_urgent = 1').get() as CountRow).count;
-    const monitoredKeywords = (db.prepare('SELECT COUNT(*) as count FROM keywords WHERE enabled = 1').get() as CountRow).count;
+    const totalHotspots = (db.prepare('SELECT COUNT(*) as count FROM news_items WHERE user_id = ?').get(userId) as CountRow).count;
+    const todayNew = (db.prepare('SELECT COUNT(*) as count FROM news_items WHERE matched_at > ? AND user_id = ?').get(todayStart, userId) as CountRow).count;
+    const urgentHot = (db.prepare('SELECT COUNT(*) as count FROM news_items WHERE is_urgent = 1 AND user_id = ?').get(userId) as CountRow).count;
+    const monitoredKeywords = (db.prepare('SELECT COUNT(*) as count FROM keywords WHERE enabled = 1 AND user_id = ?').get(userId) as CountRow).count;
 
     const stats: DashboardStats = {
       totalHotspots,
@@ -78,15 +82,15 @@ router.get('/stats', (_req, res) => {
 });
 
 // 获取热点列表（分页，可选按来源筛选）
-router.get('/hotspots', (req, res) => {
+router.get('/hotspots', authRequired, (req: AuthRequest, res) => {
   try {
     const { page = 1, pageSize = 20, source } = req.query;
     const offset = (Number(page) - 1) * Number(pageSize);
-    const params: any[] = [];
+    const params: any[] = [req.user!.userId];
 
-    let whereClause = '';
+    let whereClause = 'WHERE n.user_id = ?';
     if (source && source !== 'all') {
-      whereClause = 'WHERE n.source = ?';
+      whereClause += ' AND n.source = ?';
       params.push(source);
     }
 
@@ -104,7 +108,7 @@ router.get('/hotspots', (req, res) => {
       ${whereClause}
     `).get(...params) as CountRow;
 
-    const items = rows.map((row: NewsItemRow) => ({
+    const items = (rows as NewsItemRow[]).map((row) => ({
       id: row.id,
       keywordId: row.keyword_id,
       keywordTerm: row.keyword_term,
@@ -133,10 +137,11 @@ router.get('/hotspots', (req, res) => {
 });
 
 // 搜索热点（同时搜索 news_items 和 hot_topics）
-router.get('/search', (req, res) => {
+router.get('/search', authRequired, (req: AuthRequest, res) => {
   try {
     const { q = '', page = 1, pageSize = 20 } = req.query;
     const offset = (Number(page) - 1) * Number(pageSize);
+    const userId = req.user!.userId;
 
     if (!q || q.toString().trim() === '') {
       return res.json({ items: [], total: 0 });
@@ -149,10 +154,10 @@ router.get('/search', (req, res) => {
       SELECT n.*, k.term as keyword_term, 'news' as _data_type
       FROM news_items n
       LEFT JOIN keywords k ON n.keyword_id = k.id
-      WHERE n.title LIKE ? OR n.summary LIKE ? OR k.term LIKE ?
+      WHERE (n.title LIKE ? OR n.summary LIKE ? OR k.term LIKE ?) AND n.user_id = ?
       ORDER BY n.heat DESC, n.matched_at DESC
       LIMIT ? OFFSET ?
-    `).all(searchTerm, searchTerm, searchTerm, Number(pageSize), offset) as NewsItemRow[];
+    `).all(searchTerm, searchTerm, searchTerm, userId, Number(pageSize), offset) as NewsItemRow[];
 
     const hotRows = db.prepare(`
       SELECT
@@ -182,13 +187,13 @@ router.get('/search', (req, res) => {
       SELECT COUNT(*) as count FROM (
         SELECT n.url FROM news_items n
         LEFT JOIN keywords k ON n.keyword_id = k.id
-        WHERE n.title LIKE ? OR n.summary LIKE ? OR k.term LIKE ?
+        WHERE (n.title LIKE ? OR n.summary LIKE ? OR k.term LIKE ?) AND n.user_id = ?
         UNION
         SELECT url FROM hot_topics WHERE title LIKE ? OR summary LIKE ?
       )
-    `).get(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm) as CountRow).count;
+    `).get(searchTerm, searchTerm, searchTerm, userId, searchTerm, searchTerm) as CountRow).count;
 
-    const items = merged.map((row: any) => ({
+    const items = (merged as any[]).map((row) => ({
       id: row.id,
       keywordId: row.keyword_id,
       keywordTerm: row.keyword_term,
@@ -222,31 +227,32 @@ router.get('/search', (req, res) => {
 });
 
 // 更新资源（完成状态、收藏状态等）
-router.patch('/resource/:id', (req, res) => {
+router.patch('/resource/:id', authRequired, (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { completed, favorited } = req.body;
+    const userId = req.user!.userId;
 
     // 取消收藏时检查关联实体是否存在
     if (favorited === false) {
-      const item = db.prepare('SELECT keyword_id, creator_id FROM news_items WHERE id = ?').get(id) as any;
+      const item = db.prepare('SELECT keyword_id, creator_id FROM news_items WHERE id = ? AND user_id = ?').get(id, userId) as any;
       if (item) {
         let hasAssociation = false;
         let allGone = true;
         if (item.keyword_id) {
           hasAssociation = true;
-          if (db.prepare('SELECT id FROM keywords WHERE id = ?').get(item.keyword_id)) {
+          if (db.prepare('SELECT id FROM keywords WHERE id = ? AND user_id = ?').get(item.keyword_id, userId)) {
             allGone = false;
           }
         }
         if (item.creator_id) {
           hasAssociation = true;
-          if (db.prepare('SELECT id FROM followed_creators WHERE id = ?').get(item.creator_id)) {
+          if (db.prepare('SELECT id FROM followed_creators WHERE id = ? AND user_id = ?').get(item.creator_id, userId)) {
             allGone = false;
           }
         }
         if (hasAssociation && allGone) {
-          db.prepare('DELETE FROM news_items WHERE id = ?').run(id);
+          db.prepare('DELETE FROM news_items WHERE id = ? AND user_id = ?').run(id, userId);
           return res.json({ success: true, deleted: true });
         }
       }
@@ -265,8 +271,8 @@ router.patch('/resource/:id', (req, res) => {
     }
 
     if (updates.length > 0) {
-      params.push(id);
-      db.prepare(`UPDATE news_items SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+      params.push(id, userId);
+      db.prepare(`UPDATE news_items SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
     }
 
     res.json({ success: true });
@@ -277,23 +283,24 @@ router.patch('/resource/:id', (req, res) => {
 });
 
 // 获取收藏资源
-router.get('/favorites', (req, res) => {
+router.get('/favorites', authRequired, (req: AuthRequest, res) => {
   try {
     const { page = 1, pageSize = 20 } = req.query;
     const offset = (Number(page) - 1) * Number(pageSize);
+    const userId = req.user!.userId;
 
     const rows = db.prepare(`
       SELECT n.*, k.term as keyword_term
       FROM news_items n
       LEFT JOIN keywords k ON n.keyword_id = k.id
-      WHERE n.favorited = 1
+      WHERE n.favorited = 1 AND n.user_id = ?
       ORDER BY n.matched_at DESC
       LIMIT ? OFFSET ?
-    `).all(Number(pageSize), offset);
+    `).all(userId, Number(pageSize), offset);
 
     const countResult = db.prepare(`
-      SELECT COUNT(*) as count FROM news_items WHERE favorited = 1
-    `).get() as CountRow;
+      SELECT COUNT(*) as count FROM news_items WHERE favorited = 1 AND user_id = ?
+    `).get(userId) as CountRow;
 
     const items = rows.map((row: any) => ({
       id: row.id,
@@ -324,14 +331,15 @@ router.get('/favorites', (req, res) => {
 });
 
 // 批量删除资源（按 ID）
-router.post('/resources/batch-delete-by-ids', (req, res) => {
+router.post('/resources/batch-delete-by-ids', authRequired, (req: AuthRequest, res) => {
   try {
     const { ids } = req.body;
+    const userId = req.user!.userId;
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: 'ids must be a non-empty array' });
     }
     const placeholders = ids.map(() => '?').join(',');
-    db.prepare(`DELETE FROM news_items WHERE id IN (${placeholders})`).run(...ids);
+    db.prepare(`DELETE FROM news_items WHERE id IN (${placeholders}) AND user_id = ?`).run(...ids, userId);
     res.json({ success: true });
   } catch (error) {
     console.error('Batch delete by ids error:', error);
@@ -340,13 +348,14 @@ router.post('/resources/batch-delete-by-ids', (req, res) => {
 });
 
 // 批量删除资源（按类型）
-router.post('/resources/batch-delete', (req, res) => {
+router.post('/resources/batch-delete', authRequired, (req: AuthRequest, res) => {
   try {
     const { type } = req.body;
+    const userId = req.user!.userId;
     if (type === 'keywords') {
-      db.prepare('DELETE FROM news_items WHERE keyword_id IS NOT NULL').run();
+      db.prepare('DELETE FROM news_items WHERE keyword_id IS NOT NULL AND user_id = ?').run(userId);
     } else if (type === 'creators') {
-      db.prepare('DELETE FROM news_items WHERE creator_id IS NOT NULL').run();
+      db.prepare('DELETE FROM news_items WHERE creator_id IS NOT NULL AND user_id = ?').run(userId);
     } else {
       return res.status(400).json({ error: 'Invalid type, must be "keywords" or "creators"' });
     }
@@ -358,10 +367,10 @@ router.post('/resources/batch-delete', (req, res) => {
 });
 
 // 删除单个资源
-router.delete('/resource/:id', (req, res) => {
+router.delete('/resource/:id', authRequired, (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    db.prepare('DELETE FROM news_items WHERE id = ?').run(id);
+    db.prepare('DELETE FROM news_items WHERE id = ? AND user_id = ?').run(id, req.user!.userId);
     res.json({ success: true });
   } catch (error) {
     console.error('Delete resource error:', error);

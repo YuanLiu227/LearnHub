@@ -10,6 +10,7 @@ import configRouter from './routes/config.js';
 import docsRouter from './routes/docs.js';
 import dashboardRouter from './routes/dashboard.js';
 import creatorsRouter, { runCreatorCollection } from './routes/creators.js';
+import authRouter from './routes/auth.js';
 
 // 加载环境变量 - 从 server 目录向上找 .env 文件
 const envPath = path.join(process.cwd(), '.env');
@@ -21,7 +22,10 @@ const PORT = process.env.PORT || 3001;
 
 // 中间件
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173'],
+  origin: [
+    'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175',
+    'http://127.0.0.1:5173', 'http://127.0.0.1:5174', 'http://127.0.0.1:5175',
+  ],
   credentials: true,
 }));
 app.use(express.json());
@@ -40,6 +44,7 @@ app.use('/api/config', configRouter);
 app.use('/api/docs', docsRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/creators', creatorsRouter);
+app.use('/api/auth', authRouter);
 
 // 健康检查
 app.get('/api/health', (req, res) => {
