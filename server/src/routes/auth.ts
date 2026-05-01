@@ -63,6 +63,13 @@ router.post('/register', async (req, res) => {
     if (!requireCaptcha(req, res)) return;
 
     const { email, password } = req.body;
+
+    // 检查系统是否允许新用户注册
+    const regRow = db.prepare("SELECT value FROM config WHERE key = 'registration_enabled'").get() as any;
+    const registrationEnabled = regRow ? regRow.value !== 'false' : true;
+    if (!registrationEnabled) {
+      return res.status(400).json({ error: '当前服务已停用，无法注册新账号' });
+    }
     if (!email || !password) {
       return res.status(400).json({ error: '邮箱和密码为必填项' });
     }
@@ -111,6 +118,13 @@ router.post('/register/verify', async (req, res) => {
       return res.status(400).json({ error: '邮箱和验证码为必填项' });
     }
 
+    // 检查系统是否允许新用户注册
+    const regRow = db.prepare("SELECT value FROM config WHERE key = 'registration_enabled'").get() as any;
+    const registrationEnabled = regRow ? regRow.value !== 'false' : true;
+    if (!registrationEnabled) {
+      return res.status(400).json({ error: '当前服务已停用，无法注册新账号' });
+    }
+
     // 邮箱验证码校验
     if (!verifyVerificationCode(email, code)) {
       return res.status(400).json({ error: '验证码无效或已过期' });
@@ -131,11 +145,15 @@ router.post('/register/verify', async (req, res) => {
     const passwordHash = bcrypt.hashSync(password, 10);
     const createdAt = Date.now();
 
-    db.prepare('INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)')
-      .run(id, email, passwordHash, createdAt);
+    // 判断是否为管理员：邮箱匹配 SMTP_USER 的账号自动设为 admin
+    const adminEmail = process.env.SMTP_USER || '';
+    const role = email === adminEmail ? 'admin' : 'user';
 
-    const token = generateToken(id, email);
-    res.status(201).json({ token, user: { id, email } });
+    db.prepare('INSERT INTO users (id, email, password_hash, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(id, email, passwordHash, role, 'active', createdAt);
+
+    const token = generateToken(id, email, role);
+    res.status(201).json({ token, user: { id, email, role } });
   } catch (error: any) {
     console.error('Register verify error:', error);
     res.status(500).json({ error: '注册失败' });
@@ -157,12 +175,16 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ error: '邮箱或密码错误' });
     }
 
+    if (row.status === 'frozen') {
+      return res.status(403).json({ error: '账号已被冻结，无法登录' });
+    }
+
     if (!bcrypt.compareSync(password, row.password_hash)) {
       return res.status(401).json({ error: '邮箱或密码错误' });
     }
 
-    const token = generateToken(row.id, row.email);
-    res.json({ token, user: { id: row.id, email: row.email } });
+    const token = generateToken(row.id, row.email, row.role);
+    res.json({ token, user: { id: row.id, email: row.email, role: row.role, status: row.status } });
   } catch (error: any) {
     console.error('Login error:', error);
     res.status(500).json({ error: '登录失败' });
@@ -177,6 +199,13 @@ router.post('/resend-code', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: '邮箱为必填项' });
     if (!validateEmail(email)) return res.status(400).json({ error: '邮箱格式不正确' });
+
+    // 检查系统是否允许新用户注册
+    const regRow = db.prepare("SELECT value FROM config WHERE key = 'registration_enabled'").get() as any;
+    const registrationEnabled = regRow ? regRow.value !== 'false' : true;
+    if (!registrationEnabled) {
+      return res.status(400).json({ error: '当前服务已停用，无法注册新账号' });
+    }
 
     const vcode = genVCode();
     storeVerificationCode(email, vcode);
@@ -197,7 +226,9 @@ router.post('/resend-code', async (req, res) => {
 });
 
 router.get('/me', authRequired, (req: AuthRequest, res) => {
-  res.json({ user: req.user });
+  const row = db.prepare('SELECT id, email, role, status FROM users WHERE id = ?').get(req.user!.userId) as any;
+  if (!row) return res.status(401).json({ error: '用户不存在' });
+  res.json({ user: row });
 });
 
 export default router;

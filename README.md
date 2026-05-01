@@ -1,6 +1,6 @@
 # LearnHub — 多源学习内容搜索平台
 
-> 关键词驱动的多源学习资源聚合工具。支持关键词搜索 + 博主关注自动收集，跨 Bilibili、YouTube、编程导航等多个数据源，帮助开发者高效发现和整理高质量学习内容。
+> 关键词驱动的多源学习资源聚合工具。支持关键词搜索 + 博主关注自动收集，跨 Bilibili、YouTube、编程导航等多个数据源，帮助开发者高效发现和整理高质量学习内容。提供独立的管理后台。
 
 ---
 
@@ -13,6 +13,7 @@
 - [快速开始](#快速开始)
 - [环境变量配置](#环境变量配置)
 - [使用指南](#使用指南)
+- [管理后台](#管理后台)
 - [项目结构](#项目结构)
 - [API 接口](#api-接口)
 - [评分体系](#评分体系)
@@ -43,6 +44,13 @@
 - **JWT 认证** — 7 天过期，页面刷新自动恢复会话
 - **数据隔离** — 每个用户独立管理自己的关键词、博主和资源
 
+### 管理后台
+
+- **独立地址** — 访问 `http://localhost:3001/admin` 进入，与主前端完全分离
+- **管理员登录** — 使用管理员账号（邮箱匹配 SMTP_USER）登录
+- **用户管理** — 用户列表、冻结/解冻、删除（含安全防护）
+- **系统设置** — 注册开关，关闭后新用户无法注册
+
 ### 数据管理
 
 - **两级删除**：归档（软删除，保留关联资源）和永久删除（级联清理关联资源）
@@ -61,20 +69,25 @@
 ## 架构概览
 
 ```
-┌──────────┐     ┌──────────┐     ┌─────────────┐
-│  浏览器   │────▶│ Vite 代理 │────▶│ Express API  │
-│ React 19  │     │ :5173    │     │ :3001       │
-└──────────┘     └──────────┘     └──────┬──────┘
-                                         │
-                          ┌──────────────┼──────────────┐
-                          ▼              ▼              ▼
-                    ┌──────────┐  ┌──────────┐  ┌──────────────┐
-                    │ SQLite   │  │ DeepSeek │  │ 数据源适配器  │
-                    │(node:sqlite)│ │ V4 Flash│  │ Bilibili     │
-                    │ WAL 模式 │  │ API     │  │ YouTube      │
-                    └──────────┘  └──────────┘  │ 编程导航     │
-                                                  │ 鱼皮AI导航   │
-                                                  └──────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  主前端 (localhost:5173)                 管理后台 (localhost:3001/admin)  │
+│  React 19 + Vite + Tailwind             独立 HTML/CSS/JS 单页面         │
+│  Zustand 状态管理 + Axios                fetch 直接调用 API              │
+└──────────────────────┬──────────────────────────────────────────────────┘
+                       │ HTTP (REST API) — JWT 认证（含 role）
+┌──────────────────────┴──────────────────────────────────────────────────┐
+│                   Express 5 + TypeScript                                 │
+│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐       │
+│  │ 认证  │ │ 关键词 │ │ 博主  │ │ 视频  │ │ 仪表盘│ │ AI  │ │ 管理  │       │
+│  └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ └──────┘       │
+│            ┌──────────────────────────────────────┐                     │
+│            │ Bilibili / YouTube / 编程导航 / DeepSeek │                     │
+│            └──────────────────────────────────────┘                     │
+│                           │                                              │
+│                      ┌────┴────┐                                         │
+│                      │ SQLite  │ (node:sqlite, WAL)                     │
+│                      └─────────┘                                         │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -96,6 +109,7 @@
 | **HTTP 客户端** | axios（前后端通用） |
 | **包管理** | npm workspaces（client/ + server/） |
 | **MCP** | Firecrawl MCP + Context7 MCP |
+| **管理后台** | 独立 HTML/CSS/JS 单页面（无构建工具依赖） |
 
 ---
 
@@ -135,18 +149,23 @@ npm install
 cp server/.env.example server/.env
 ```
 
-编辑 `server/.env`，至少配置以下内容：
+编辑 `server/.env`，至少配置以下内容。
+
+**必需环境变量：**
 
 ```env
-# DeepSeek API（必需，用于 AI 内容处理）
-DEEPSEEK_API_KEY=sk-your-deepseek-api-key
-
-# YouTube API（如需搜索 YouTube）
-YOUTUBE_API_KEY=your-youtube-api-key
-YOUTUBE_PROXY_URL=http://127.0.0.1:7890    # 国内使用需代理
-
-# JWT 密钥（必需，用于用户认证）
+DEEPSEK_API_KEY=sk-your-deepseek-api-key
 JWT_SECRET=your-random-jwt-secret
+```
+
+**如需管理后台，配置 SMTP（SMTP_USER 邮箱自动成为管理员）：**
+
+```env
+SMTP_HOST=smtp.qq.com
+SMTP_PORT=587
+SMTP_USER=your-email@qq.com
+SMTP_PASS=your-auth-code
+SMTP_FROM=YourName <your-email@qq.com>
 ```
 
 ### 3. 启动服务
@@ -158,6 +177,7 @@ npm run dev
 该命令会同时启动：
 - **前端开发服务器** → http://localhost:5173
 - **后端 API 服务** → http://localhost:3001
+- **管理后台** → http://localhost:3001/admin
 
 ### 4. 注册账号
 
@@ -167,6 +187,8 @@ npm run dev
 4. 输入图形验证码，点击"发送验证码"
 5. 查收邮箱中的验证码并填入（开发模式可在控制台查看验证码）
 6. 点击"确认注册"完成注册
+
+> ⚠️ 如果 SMTP_USER 配置为 `your-email@qq.com`，则该邮箱注册时自动成为管理员，可登录管理后台。
 
 ### 5. 开始使用
 
@@ -199,15 +221,15 @@ npm run dev
 | `YOUTUBE_MIN_VIEWS` | YouTube 搜索最低播放量 | 10000 |
 | `YOUTUBE_MIN_LIKES` | YouTube 搜索最低点赞数 | 500 |
 
-### 邮件配置（可选）
+### 邮件配置（可选，同时决定管理员账号）
 
-SMTP 配置用于发送注册验证码。如不配置，开发模式下会在控制台输出验证码。
+SMTP 配置用于发送注册验证码。**SMTP_USER 邮箱对应的注册账号自动成为管理员，可访问管理后台。**
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `SMTP_HOST` | SMTP 服务器地址 | smtp.gmail.com |
 | `SMTP_PORT` | SMTP 端口 | 587 |
-| `SMTP_USER` | SMTP 用户名 | — |
+| `SMTP_USER` | SMTP 用户名（**此邮箱注册时自动成为管理员**） | — |
 | `SMTP_PASS` | SMTP 密码/应用密码 | — |
 | `SMTP_FROM` | 发件人地址，格式 `Name <email>` | — |
 | `NOTIFICATION_EMAIL` | 通知接收邮箱 | — |
@@ -284,6 +306,36 @@ SMTP 配置用于发送注册验证码。如不配置，开发模式下会在控
 
 ---
 
+## 管理后台
+
+管理后台是一个独立的 HTML 页面，由后端 Express 静态提供，与主前端 SPA 完全分离。
+
+### 访问地址
+
+```
+http://localhost:3001/admin
+```
+
+### 管理员账号
+
+管理员账号通过 SMTP 配置自动分配：
+
+1. 设置环境变量 `SMTP_USER`（如 `your-email@qq.com`）
+2. 使用该邮箱在 http://localhost:5173 注册
+3. 系统自动将该账号角色设为 `admin`
+4. 使用该账号在管理后台登录
+
+### 管理功能
+
+| 功能 | 说明 |
+|------|------|
+| **用户列表** | 分页展示所有用户，含邮箱、角色、状态、注册时间 |
+| **冻结/解冻** | 冻结后用户无法登录（不能冻结自己和其它管理员） |
+| **删除用户** | 级联删除关联数据（不能删除自己，不能删最后一名管理员） |
+| **注册开关** | 关闭后新用户无法注册，所有注册入口返回友好提示 |
+
+---
+
 ## 项目结构
 
 ```
@@ -313,6 +365,9 @@ LearnHub/
 │       ├── App.tsx                  # 根组件（路由控制：登录页 vs 主页）
 │       └── main.tsx                 # 入口
 ├── server/                          # 后端 (Express + TypeScript)
+│   ├── public/
+│   │   └── admin/
+│   │       └── index.html           # 管理后台独立页面
 │   └── src/
 │       ├── routes/
 │       │   ├── auth.ts              # 用户认证（登录/注册/验证码）
@@ -321,6 +376,7 @@ LearnHub/
 │       │   ├── monitor.ts           # 关键词搜索触发 + 进度
 │       │   ├── videos.ts            # 视频 URL 提交 + 列表
 │       │   ├── dashboard.ts         # 数据统计 + 资源管理
+│       │   ├── admin.ts             # 管理后台 API
 │       │   ├── config.ts            # 应用配置
 │       │   ├── ai.ts                # AI 聊天 + 真实性校验
 │       │   └── docs.ts              # 技术文档查询（Context7）
@@ -339,15 +395,17 @@ LearnHub/
 │       │   ├── notifier.ts          # 邮件通知服务
 │       │   └── context7-mcp.ts      # Context7 MCP 集成
 │       ├── middleware/
-│       │   └── auth.ts              # JWT 认证中间件
+│       │   └── auth.ts              # JWT 认证中间件 + adminRequired
 │       ├── db/
 │       │   └── sqlite.ts            # 数据库连接（node:sqlite）+ Schema + 迁移
 │       ├── types/
 │       │   └── index.ts             # 类型定义
 │       └── index.ts                 # 服务入口
 ├── docs/                            # 项目文档
-│   ├── 需求文档.md                   # 需求文档
-│   └── 项目总结.md                   # 项目总结
+│   ├── 需求文档.md                   # 需求文档（含管理后台）
+│   ├── 项目总结.md                   # 项目总结（含架构演进）
+│   ├── CONFIG.md                    # 配置指南
+│   └── SPEC.md                      # 技术规格
 └── package.json                     # npm workspaces 根配置
 ```
 
@@ -419,6 +477,17 @@ LearnHub/
 | DELETE | `/api/dashboard/resource/:id` | 删除单个资源 |
 | POST | `/api/dashboard/resources/batch-delete` | 按类型批量清空（关键词/博主/视频资源） |
 | POST | `/api/dashboard/resources/batch-delete-by-ids` | 按 ID 批量删除 |
+
+### 管理后台
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/admin/users` | 获取用户列表（分页，需 admin 权限） |
+| DELETE | `/api/admin/users/:id` | 删除用户（需 admin 权限） |
+| PATCH | `/api/admin/users/:id/freeze` | 冻结用户（需 admin 权限） |
+| PATCH | `/api/admin/users/:id/unfreeze` | 解冻用户（需 admin 权限） |
+| GET | `/api/admin/settings` | 获取系统设置 |
+| PUT | `/api/admin/settings` | 更新系统设置 |
 
 ### AI
 
@@ -495,7 +564,7 @@ cd server
 node dist/index.js
 ```
 
-前端构建产物可通过 Express 静态文件服务或 Nginx 部署。
+管理后台页面由 Express 自动在 `/admin` 路由下提供，无需额外部署。
 
 ### 推荐平台
 

@@ -34,7 +34,7 @@ export const authApi = {
     return response.data;
   },
 
-  login: async (email: string, password: string, captchaId: string, captchaCode: string): Promise<{ token: string; user: { id: string; email: string } }> => {
+  login: async (email: string, password: string, captchaId: string, captchaCode: string): Promise<{ token: string; user: { id: string; email: string; role: string } }> => {
     const response = await api.post('/auth/login', { email, password, captchaId, captchaCode });
     return response.data;
   },
@@ -44,7 +44,7 @@ export const authApi = {
     return response.data;
   },
 
-  verifyRegistration: async (email: string, code: string, password: string, captchaId: string, captchaCode: string): Promise<{ token: string; user: { id: string; email: string } }> => {
+  verifyRegistration: async (email: string, code: string, password: string, captchaId: string, captchaCode: string): Promise<{ token: string; user: { id: string; email: string; role: string } }> => {
     const response = await api.post('/auth/register/verify', { email, code, password, captchaId, captchaCode });
     return response.data;
   },
@@ -54,7 +54,7 @@ export const authApi = {
     return response.data;
   },
 
-  me: async (): Promise<{ user: { id: string; email: string } }> => {
+  me: async (): Promise<{ user: { id: string; email: string; role: string; status: string } }> => {
     const response = await api.get('/auth/me');
     return response.data;
   },
@@ -179,6 +179,35 @@ export const healthApi = {
     } catch {
       return false;
     }
+  },
+};
+
+// 管理后台 API
+export const adminApi = {
+  getUsers: async (page = 1, pageSize = 20): Promise<{ users: any[]; total: number }> => {
+    const response = await api.get('/admin/users', { params: { page, pageSize } });
+    return response.data;
+  },
+
+  deleteUser: async (id: string): Promise<void> => {
+    await api.delete(`/admin/users/${id}`);
+  },
+
+  freezeUser: async (id: string): Promise<void> => {
+    await api.patch(`/admin/users/${id}/freeze`);
+  },
+
+  unfreezeUser: async (id: string): Promise<void> => {
+    await api.patch(`/admin/users/${id}/unfreeze`);
+  },
+
+  getSettings: async (): Promise<{ registrationEnabled: boolean }> => {
+    const response = await api.get('/admin/settings');
+    return response.data;
+  },
+
+  updateSettings: async (settings: { registrationEnabled: boolean }): Promise<void> => {
+    await api.put('/admin/settings', settings);
   },
 };
 

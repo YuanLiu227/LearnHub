@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LearnHub 管理后台</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-primary: #0f0f1a;
+    --bg-surface: #1a1a2e;
+    --bg-surface-hover: #222240;
+    --bg-elevated: #252542;
+    --border: #2a2a4a;
+    --text-primary: #e8e8f0;
+    --text-secondary: #8888aa;
+    --text-tertiary: #666688;
+    --accent: #6c5ce7;
+    --accent-hover: #5a4bd1;
+    --danger: #e74c3c;
+    --danger-hover: #c0392b;
+    --success: #2ecc71;
+    --warning: #f39c12;
+    --radius: 8px;
+    --radius-sm: 4px;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .container { width: 100%; max-width: 1000px; padding: 20px; }
+
+  /* Login */
+  .login-box {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px;
+    max-width: 400px;
+    margin: 80px auto;
+  }
+  .login-box h1 { font-size: 22px; margin-bottom: 8px; }
+  .login-box p { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
+
+  /* Form */
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+  .form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-group input:focus { border-color: var(--accent); }
+
+  /* Buttons */
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; width: 100%; justify-content: center; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+  .btn-outline:hover { background: var(--bg-surface-hover); }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 { font-size: 20px; }
+  .header-info { display: flex; align-items: center; gap: 16px; }
+  .header-info span { font-size: 13px; color: var(--text-secondary); }
+
+  /* Cards / Table */
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* User Row */
+  .user-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  .user-row:last-child { border-bottom: none; }
+  .user-row:hover { background: var(--bg-surface-hover); }
+  .user-email { font-size: 14px; word-break: break-all; }
+  .user-date { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-admin { background: rgba(108,92,231,0.2); color: var(--accent); }
+  .badge-user { background: rgba(136,136,170,0.15); color: var(--text-secondary); }
+  .badge-active { background: rgba(46,204,113,0.15); color: var(--success); }
+  .badge-frozen { background: rgba(231,76,60,0.15); color: var(--danger); }
+
+  /* Action buttons */
+  .actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+  /* Footer / Pagination */
+  .footer {
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+  }
+  .pagination { display: flex; gap: 4px; }
+  .pagination .btn { min-width: 32px; justify-content: center; }
+
+  /* Toggle */
+  .toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .toggle.active { background: var(--accent); border-color: var(--accent); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle.active::after { transform: translateX(20px); }
+  .toggle-label { font-size: 14px; }
+  .toggle-desc { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+
+  /* Messages */
+  .msg {
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .msg-error { background: rgba(231,76,60,0.15); color: var(--danger); border: 1px solid rgba(231,76,60,0.3); }
+  .msg-success { background: rgba(46,204,113,0.15); color: var(--success); border: 1px solid rgba(46,204,113,0.3); }
+  .hidden { display: none !important; }
+
+  /* Settings section */
+  .settings {
+    margin-top: 20px;
+  }
+
+  /* Loading */
+  .loading { text-align: center; padding: 40px; color: var(--text-tertiary); }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 40px; color: var(--text-tertiary); font-size: 14px; }
+
+  /* Captcha */
+  .captcha-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .captcha-wrap img {
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    height: 40px;
+  }
+  .captcha-wrap input {
+    width: 100px;
+    padding: 10px 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+    text-align: center;
+    letter-spacing: 4px;
+  }
+  .captcha-wrap input:focus { border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="container" id="app">
+  <!-- Login -->
+  <div id="loginView" class="login-box">
+    <h1>LearnHub 管理后台</h1>
+    <p>仅管理员可访问，请输入账号密码登录</p>
+    <div id="loginMsg" class="msg hidden"></div>
+    <div class="form-group">
+      <label>邮箱</label>
+      <input type="email" id="loginEmail" placeholder="请输入管理员邮箱" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="loginPassword" placeholder="请输入密码" autocomplete="current-password">
+    </div>
+    <div class="form-group">
+      <label>图形验证码</label>
+      <div class="captcha-wrap">
+        <img id="captchaImg" src="" alt="验证码" onclick="loadCaptcha()" title="点击刷新">
+        <input type="text" id="loginCaptcha" placeholder="验证码" maxlength="4" autocomplete="off">
+      </div>
+    </div>
+    <button class="btn btn-primary" id="loginBtn" onclick="handleLogin()">登录</button>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="adminView" class="hidden">
+    <div class="header">
+      <h1>用户管理</h1>
+      <div class="header-info">
+        <span id="adminEmail"></span>
+        <button class="btn btn-sm btn-outline" onclick="handleLogout()">退出登录</button>
+      </div>
+    </div>
+
+    <div id="adminMsg" class="msg hidden"></div>
+
+    <!-- User List -->
+    <div class="card">
+      <div class="card-header">
+        <span>用户列表</span>
+        <span id="userCount" style="font-size:13px;color:var(--text-secondary)"></span>
+      </div>
+      <div id="userList">
+        <div class="loading">加载中...</div>
+      </div>
+      <div class="footer" id="pagination">
+        <span id="pageInfo"></span>
+        <div class="pagination">
+          <button class="btn btn-sm btn-outline" onclick="changePage(-1)" id="prevBtn">上一页</button>
+          <button class="btn btn-sm btn-outline" onclick="changePage(1)" id="nextBtn">下一页</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="card settings">
+      <div class="card-header">系统设置</div>
+      <div style="padding:16px 20px;">
+        <div class="toggle-wrap">
+          <div class="toggle" id="regToggle" onclick="toggleRegistration()"></div>
+          <div>
+            <div class="toggle-label">允许新用户注册</div>
+            <div class="toggle-desc">关闭后，新用户无法在注册页面完成注册</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = ''; // 同域下的 /api 路径
+let token = localStorage.getItem('admin_token');
+let currentPage = 1;
+let totalUsers = 0;
+const pageSize = 20;
+let captchaId = '';
+let captchaSvg = '';
+
+// 加载图形验证码
+async function loadCaptcha() {
+  try {
+    const res = await fetch(API + '/api/auth/captcha');
+    const data = await res.json();
+    captchaId = data.captchaId;
+    document.getElementById('captchaImg').src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(data.svg)));
+  } catch (e) {
+    console.error('Failed to load captcha', e);
+  }
+}
+
+// 检查是否已登录
+if (token) {
+  showAdminView();
+} else {
+  loadCaptcha();
+}
+
+function showMsg(el, type, text) {
+  el.className = 'msg msg-' + type;
+  el.textContent = text;
+  el.classList.remove('hidden');
+}
+
+function hideMsg(el) {
+  el.classList.add('hidden');
+}
+
+// Login
+async function handleLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const captchaCode = document.getElementById('loginCaptcha').value.trim();
+  const btn = document.getElementById('loginBtn');
+  const msg = document.getElementById('loginMsg');
+
+  if (!email || !password) {
+    showMsg(msg, 'error', '请输入邮箱和密码');
+    return;
+  }
+  if (!captchaCode) {
+    showMsg(msg, 'error', '请输入图形验证码');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '登录中...';
+  hideMsg(msg);
+
+  try {
+    const res = await fetch(API + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, captchaId, captchaCode }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showMsg(msg, 'error', data.error || '登录失败');
+      loadCaptcha();
+      document.getElementById('loginCaptcha').value = '';
+      btn.disabled = false;
+      btn.textContent = '登录';
+      return;
+    }
+
+    if (data.user.role !== 'admin') {
+      showMsg(msg, 'error', '该账号不是管理员，无法访问管理后台');
+      loadCaptcha();
+      document.getElementById('loginCaptcha').value = '';
+      btn.disabled = false;
+      btn.textContent = '登录';
+      return;
+    }
+
+    token = data.token;
+    localStorage.setItem('admin_token', token);
+    showAdminView();
+  } catch (e) {
+    showMsg(msg, 'error', '网络错误，请检查服务是否运行');
+    loadCaptcha();
+    document.getElementById('loginCaptcha').value = '';
+    btn.disabled = false;
+    btn.textContent = '登录';
+  }
+}
+
+// Logout
+function handleLogout() {
+  token = null;
+  localStorage.removeItem('admin_token');
+  document.getElementById('loginView').classList.remove('hidden');
+  document.getElementById('adminView').classList.add('hidden');
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('loginCaptcha').value = '';
+  loadCaptcha();
+}
+
+// Show admin view
+function showAdminView() {
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('adminView').classList.remove('hidden');
+  document.getElementById('adminEmail').textContent = '已登录';
+  loadUsers();
+  loadSettings();
+}
+
+// Load users
+async function loadUsers() {
+  const list = document.getElementById('userList');
+  list.innerHTML = '<div class="loading">加载中...</div>';
+
+  try {
+    const res = await fetch(API + '/api/admin/users?page=' + currentPage + '&pageSize=' + pageSize, {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      handleLogout();
+      showMsg(document.getElementById('loginMsg'), 'error', '登录已过期，请重新登录');
+      return;
+    }
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      list.innerHTML = '<div class="empty">加载失败：' + (data.error || '未知错误') + '</div>';
+      return;
+    }
+
+    totalUsers = data.total;
+    renderUsers(data.users);
+    renderPagination();
+    document.getElementById('userCount').textContent = '共 ' + totalUsers + ' 人';
+  } catch (e) {
+    list.innerHTML = '<div class="empty">网络错误，无法加载用户列表</div>';
+  }
+}
+
+// Render users
+function renderUsers(users) {
+  const list = document.getElementById('userList');
+
+  if (!users || users.length === 0) {
+    list.innerHTML = '<div class="empty">暂无用户数据</div>';
+    return;
+  }
+
+  list.innerHTML = users.map(u => {
+    const roleBadge = u.role === 'admin' ? '<span class="badge badge-admin">管理员</span>' : '<span class="badge badge-user">普通用户</span>';
+    const statusBadge = u.status === 'frozen' ? '<span class="badge badge-frozen">已冻结</span>' : '<span class="badge badge-active">正常</span>';
+    const date = new Date(u.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+    let actions = '<div class="actions">';
+    if (u.status === 'frozen') {
+      actions += `<button class="btn btn-sm btn-success" onclick="unfreezeUser('${u.id}')">解冻</button>`;
+    } else if (u.role !== 'admin') {
+      actions += `<button class="btn btn-sm btn-outline" onclick="freezeUser('${u.id}')">冻结</button>`;
+    }
+    actions += `<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">删除</button>`;
+    actions += '</div>';
+
+    return '<div class="user-row">' +
+      '<div><div class="user-email">' + escapeHtml(u.email) + '</div><div class="user-date">注册时间：' + date + '</div></div>' +
+      '<div>' + roleBadge + '</div>' +
+      '<div>' + statusBadge + '</div>' +
+      actions +
+      '</div>';
+  }).join('');
+}
+
+// Pagination
+function renderPagination() {
+  const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
+  document.getElementById('pageInfo').textContent = '第 ' + currentPage + ' / ' + totalPages + ' 页';
+  document.getElementById('prevBtn').disabled = currentPage <= 1;
+  document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+}
+
+function changePage(delta) {
+  const newPage = currentPage + delta;
+  if (newPage < 1) return;
+  currentPage = newPage;
+  loadUsers();
+}
+
+// Freeze user
+async function freezeUser(id) {
+  if (!confirm('确认冻结该用户？冻结后用户无法登录。')) return;
+
+  try {
+    const res = await fetch(API + '/api/admin/users/' + id + '/freeze', {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showMsg(document.getElementById('adminMsg'), 'error', data.error || '冻结失败');
+    } else {
+      showMsg(document.getElementById('adminMsg'), 'success', '用户已冻结');
+      loadUsers();
+    }
+  } catch (e) {
+    showMsg(document.getElementById('adminMsg'), 'error', '网络错误');
+  }
+}
+
+// Unfreeze user
+async function unfreezeUser(id) {
+  try {
+    const res = await fetch(API + '/api/admin/users/' + id + '/unfreeze', {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showMsg(document.getElementById('adminMsg'), 'error', data.error || '解冻失败');
+    } else {
+      showMsg(document.getElementById('adminMsg'), 'success', '用户已解冻');
+      loadUsers();
+    }
+  } catch (e) {
+    showMsg(document.getElementById('adminMsg'), 'error', '网络错误');
+  }
+}
+
+// Delete user
+async function deleteUser(id) {
+  if (!confirm('确认删除该用户？此操作不可恢复，用户的所有数据（关键词、资源、收藏等）将被永久删除！')) return;
+
+  try {
+    const res = await fetch(API + '/api/admin/users/' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showMsg(document.getElementById('adminMsg'), 'error', data.error || '删除失败');
+    } else {
+      showMsg(document.getElementById('adminMsg'), 'success', '用户已删除');
+      loadUsers();
+    }
+  } catch (e) {
+    showMsg(document.getElementById('adminMsg'), 'error', '网络错误');
+  }
+}
+
+// Settings
+async function loadSettings() {
+  try {
+    const res = await fetch(API + '/api/admin/settings', {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('regToggle').classList.toggle('active', data.registrationEnabled);
+  } catch (e) {}
+}
+
+async function toggleRegistration() {
+  const toggle = document.getElementById('regToggle');
+  const newState = !toggle.classList.contains('active');
+
+  try {
+    const res = await fetch(API + '/api/admin/settings', {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ registrationEnabled: newState }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showMsg(document.getElementById('adminMsg'), 'error', data.error || '更新设置失败');
+    } else {
+      toggle.classList.toggle('active', data.registrationEnabled);
+      showMsg(document.getElementById('adminMsg'), 'success', '设置已更新');
+    }
+  } catch (e) {
+    showMsg(document.getElementById('adminMsg'), 'error', '网络错误');
+  }
+}
+
+// Utility
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

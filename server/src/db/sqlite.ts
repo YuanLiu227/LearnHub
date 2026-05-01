@@ -110,6 +110,8 @@ try { db.exec(`ALTER TABLE news_items ADD COLUMN user_id TEXT`); } catch (e) {}
 try { db.exec(`ALTER TABLE followed_creators ADD COLUMN user_id TEXT`); } catch (e) {}
 try { db.exec(`ALTER TABLE config ADD COLUMN user_id TEXT`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); } catch (e) {}
 try { db.exec(`ALTER TABLE news_items ADD COLUMN resource_type TEXT DEFAULT 'keyword'`); } catch (e) {}
 try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE creator_id IS NOT NULL AND resource_type IS NULL`); } catch (e) {}
 try { db.exec(`UPDATE news_items SET resource_type = 'keyword' WHERE keyword_id IS NOT NULL AND resource_type IS NULL`); } catch (e) {}

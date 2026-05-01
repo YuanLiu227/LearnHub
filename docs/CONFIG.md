@@ -21,15 +21,17 @@
 | `YOUTUBE_MIN_VIEWS` | YouTube 关键词搜索最低播放量阈值 | 10000 |
 | `YOUTUBE_MIN_LIKES` | YouTube 关键词搜索最低点赞数阈值 | 500 |
 
-### 1.3 SMTP 邮件配置
+### 1.3 SMTP 邮件配置（同时决定管理员账号）
 
 用于发送注册验证码。如不配置，开发模式会在控制台输出验证码。
+
+**重要**：`SMTP_USER` 邮箱对应的注册账号会自动成为管理员（`role = 'admin'`），可访问管理后台。
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `SMTP_HOST` | SMTP 服务器地址 | smtp.gmail.com |
 | `SMTP_PORT` | SMTP 端口 | 587 |
-| `SMTP_USER` | SMTP 用户名（邮箱地址） | — |
+| `SMTP_USER` | SMTP 用户名（邮箱地址）— **此邮箱注册时自动成为管理员** | — |
 | `SMTP_PASS` | SMTP 密码/应用密码 | — |
 | `SMTP_FROM` | 发件人地址，格式 `Name <email>` | — |
 | `NOTIFICATION_EMAIL` | 通知接收邮箱 | — |
@@ -83,9 +85,20 @@ CREATE TABLE users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'user',
+  status TEXT NOT NULL DEFAULT 'active',
   created_at INTEGER NOT NULL
 );
 ```
+
+| 字段 | 说明 |
+|------|------|
+| `role` | `'user'` 普通用户 / `'admin'` 管理员（可访问管理后台） |
+| `status` | `'active'` 正常 / `'frozen'` 已冻结（无法登录） |
+
+**管理员分配规则：**
+- 注册时邮箱匹配 `SMTP_USER` 环境变量 → `role = 'admin'`
+- 其他邮箱 → `role = 'user'`
 
 #### keywords（关键词表）
 
@@ -180,6 +193,12 @@ CREATE TABLE config (
 );
 ```
 
+**全局配置键：**
+
+| key | value | 说明 |
+|-----|-------|------|
+| `registration_enabled` | `'true'` / `'false'` | 是否允许新用户注册（管理后台控制） |
+
 #### hot_topics（热点话题表）
 
 ```sql
@@ -214,7 +233,10 @@ CREATE INDEX idx_creators_user_id ON followed_creators(user_id);
 所有迁移在 `server/src/db/sqlite.ts` 中顺序执行，使用 try/catch 保证幂等性：
 
 ```typescript
-// 示例：新增 resource_type 列
+// 管理员迁移
+try { db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); } catch (e) {}
+// resource_type 迁移
 try { db.exec(`ALTER TABLE news_items ADD COLUMN resource_type TEXT DEFAULT 'keyword'`); } catch (e) {}
 try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE creator_id IS NOT NULL`); } catch (e) {}
 try { db.exec(`UPDATE news_items SET resource_type = 'keyword' WHERE keyword_id IS NOT NULL`); } catch (e) {}
@@ -222,9 +244,30 @@ try { db.exec(`UPDATE news_items SET resource_type = 'keyword' WHERE keyword_id 
 
 ---
 
-## 3. API 批量操作
+## 3. 管理后台配置
 
-### 3.1 批量清空（按类型）
+### 3.1 访问方式
+
+| 访问地址 | 说明 |
+|----------|------|
+| `http://localhost:3001/admin` | 管理后台（独立 HTML 页面，无需构建） |
+
+### 3.2 管理员账号
+
+管理员账号由 SMTP 配置决定：
+
+1. 配置 `SMTP_USER` 环境变量（如 `your-email@qq.com`）
+2. 使用该邮箱在系统中注册
+3. 系统自动分配 `role = 'admin'`
+4. 使用该账号登录管理后台即可
+
+### 3.3 系统设置
+
+| 配置项 | 说明 | 管理后台操作 |
+|--------|------|-------------|
+| `registration_enabled` | 允许新用户注册 | 设置页开关按钮 |
+
+### 3.4 API 批量操作
 
 `POST /api/dashboard/resources/batch-delete`
 
@@ -235,8 +278,6 @@ try { db.exec(`UPDATE news_items SET resource_type = 'keyword' WHERE keyword_id 
 | `'keywords'` | 删除所有 `keyword_id IS NOT NULL` 的资源 |
 | `'creators'` | 删除所有 `creator_id IS NOT NULL` 的资源 |
 | `'direct_video'` | 删除所有 `resource_type = 'direct_video'` 的资源 |
-
-### 3.2 批量删除（按 ID）
 
 `POST /api/dashboard/resources/batch-delete-by-ids`
 
@@ -294,8 +335,21 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 | 200 | 成功 | 正常处理 |
 | 400 | 参数错误 | 显示错误提示 |
 | 401 | 未认证 | 清除 token，跳转登录页 |
+| 403 | 无权限 / 账号冻结 | 显示无权限提示 / "账号已被冻结" |
 | 404 | 资源不存在 | 显示 404 提示 |
 | 500 | 服务器错误 | 显示错误提示，控制台打印错误 |
+
+### 6.3 管理后台特殊状态码
+
+| 状态码 | 场景 | 响应 |
+|--------|------|------|
+| 400 | 注册关闭时尝试注册 | `{ error: "当前服务已停用，无法注册新账号" }` |
+| 403 | 非 admin 访问管理 API | `{ error: "无权限，仅管理员可操作" }` |
+| 403 | 冻结账号尝试登录 | `{ error: "账号已被冻结，无法登录" }` |
+| 400 | 管理员删除自己 | `{ error: "不能删除自己的账号" }` |
+| 400 | 删除最后一名管理员 | `{ error: "不能删除最后一个管理员账号" }` |
+| 400 | 冻结自己 | `{ error: "不能冻结自己的账号" }` |
+| 400 | 冻结管理员 | `{ error: "不能冻结管理员账号" }` |
 
 ---
 

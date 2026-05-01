@@ -13,7 +13,7 @@ interface DashboardStats {
 
 interface AppState {
   // Auth 状态
-  user: { id: string; email: string } | null;
+  user: { id: string; email: string; role?: string; status?: string } | null;
   token: string | null;
   isAuthReady: boolean;
   login: (email: string, password: string, captchaId: string, captchaCode: string) => Promise<void>;

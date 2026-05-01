@@ -5,41 +5,46 @@
 ### 1.1 整体架构
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                        前端 (React 19 + Vite 6)                    │
-│  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌─────────────────┐  │
-│  │ 资源总览   │ │  关键词   │ │ 关键词总览 │ │   登录/注册      │  │
-│  │ ┌───────┐ │ │  ┌──────┐ │ │  博主总览   │ │                 │  │
-│  │ │ 关键词 │ │ │  │关键词│ │ └───────────┘ │                 │  │
-│  │ │ 博主   │ │ │  │博主  │ │ ┌───────────┐ │                 │  │
-│  │ │ 视频   │ │ │  │视频  │ │ │ 知识搜索   │ │                 │  │
-│  │ └───────┘ │ │  └──────┘ │ └───────────┘ │                 │  │
-│  └───────────┘ └───────────┘                                    │
-│                 Zustand 5 状态管理 + Axios HTTP 客户端             │
-└──────────────────────────┬───────────────────────────────────────┘
-                           │ HTTP REST API (JWT Bearer Token)
-┌──────────────────────────┴───────────────────────────────────────┐
-│                   后端 (Express 5 + TypeScript)                    │
-│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐│
-│  │ 认证  │ │ 关键词│ │ 博主  │ │ 视频  │ │ 仪表盘│ │ 配置  │ │ AI  ││
-│  └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ └──────┘│
-│                           │                                      │
-│  ┌────────────────────────┴──────────────────────────────┐       │
-│  │                     服务层                              │       │
-│  │  ┌──────────┐ ┌──────────────┐ ┌──────────────┐       │       │
-│  │  │ Bilibili │ │   YouTube    │ │ 编程导航/鱼皮  │       │       │
-│  │  │ API      │ │   API        │ │ API          │       │       │
-│  │  └──────────┘ └──────────────┘ └──────────────┘       │       │
-│  │  ┌──────────┐ ┌──────────────┐ ┌──────────────┐       │       │
-│  │  │ 评分系统  │ │  DeepSeek AI │ │ Captcha      │       │       │
-│  │  │ 去重算法  │ │  服务        │ │ 邮箱验证码    │       │       │
-│  │  └──────────┘ └──────────────┘ └──────────────┘       │       │
-│  └───────────────────────────────────────────────────────┘       │
-│                           │                                      │
-│                      ┌────┴────┐                                 │
-│                      │ SQLite  │ (node:sqlite, WAL 模式)         │
-│                      └─────────┘                                 │
-└──────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                     前端 (React 19 + Vite 6)                  管理后台    │
+│  ┌───────────┐ ┌───────────┐ ┌───────────┐       ┌───────────────┐     │
+│  │ 资源总览   │ │  关键词   │ │ 关键词总览 │       │ 管理后台       │     │
+│  │ ┌───────┐ │ │  ┌──────┐ │ │  博主总览   │       │ （独立 HTML）  │     │
+│  │ │ 关键词 │ │ │  │关键词│ │ └───────────┘       │ 登录/用户管理  │     │
+│  │ │ 博主   │ │ │  │博主  │ │ ┌───────────┐       │ 系统设置      │     │
+│  │ │ 视频   │ │ │  │视频  │ │ │ 知识搜索   │       └───────────────┘     │
+│  │ └───────┘ │ │  └──────┘ │ └───────────┘                               │
+│  └───────────┘ └───────────┘                                             │
+│                   Zustand 5 + Axios                                       │
+└──────────────────────────┬───────────────────────────────────────────────┘
+                           │ HTTP REST API (JWT Bearer Token, 含 role)
+┌──────────────────────────┴───────────────────────────────────────────────┐
+│                   后端 (Express 5 + TypeScript)                            │
+│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐        │
+│  │ 认证  │ │ 关键词│ │ 博主  │ │ 视频  │ │ 仪表盘│ │ 配置  │ │ 管理  │      │
+│  │      │ │      │ │      │ │      │ │      │ │      │ │ (admin)│      │
+│  └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ └──────┘        │
+│                           │                                              │
+│  ┌────────────────────────┴──────────────────────────────────────┐       │
+│  │                        服务层                                    │       │
+│  │  ┌──────────┐ ┌──────────────┐ ┌──────────────┐               │       │
+│  │  │ Bilibili │ │   YouTube    │ │ 编程导航/鱼皮  │               │       │
+│  │  │ API      │ │   API        │ │ API          │               │       │
+│  │  └──────────┘ └──────────────┘ └──────────────┘               │       │
+│  │  ┌──────────┐ ┌──────────────┐ ┌──────────────┐               │       │
+│  │  │ 评分系统  │ │  DeepSeek AI │ │ Captcha      │               │       │
+│  │  │ 去重算法  │ │  服务        │ │ 邮箱验证码    │               │       │
+│  │  └──────────┘ └──────────────┘ └──────────────┘               │       │
+│  │  ┌──────────┐ ┌──────────────┐                               │       │
+│  │  │ context7 │ │  Firecrawl   │                               │       │
+│  │  │ MCP      │ │  MCP         │                               │       │
+│  │  └──────────┘ └──────────────┘                               │       │
+│  └───────────────────────────────────────────────────────────────┘       │
+│                           │                                              │
+│                      ┌────┴────┐                                         │
+│                      │ SQLite  │ (node:sqlite, WAL 模式)                 │
+│                      └─────────┘                                         │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 1.2 技术栈版本
@@ -59,12 +64,33 @@
 | AI | DeepSeek V4 Flash API | latest |
 | 邮件 | nodemailer | latest |
 | HTTP 客户端 | axios | latest |
+| 管理后台 | 独立 HTML/CSS/JS | 无构建依赖 |
 
 ---
 
 ## 2. 数据模型
 
-### 2.1 news_items（学习资源表）
+### 2.1 users（用户表）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| `id` | TEXT (UUID) | 主键 |
+| `email` | TEXT (UNIQUE) | 邮箱（账号） |
+| `password_hash` | TEXT | bcrypt 哈希密码 |
+| `role` | TEXT | 角色：`'user'` / `'admin'`，默认 `'user'` |
+| `status` | TEXT | 状态：`'active'` / `'frozen'`，默认 `'active'` |
+| `created_at` | INTEGER | 注册时间 |
+
+**角色分配规则：**
+- 注册时邮箱匹配 `SMTP_USER` 环境变量 → `role = 'admin'`
+- 其他 → `role = 'user'`
+
+**状态约束：**
+- `status = 'frozen'` 时拒绝登录（返回 403）
+- 管理员不可冻结管理员
+- 管理员不可删除最后一名管理员
+
+### 2.2 news_items（学习资源表）
 
 核心表，存储所有类型的资源（关键词匹配、博主收集、视频提交）。
 
@@ -94,15 +120,6 @@
 - `resource_type = 'keyword'`：关键词搜索结果（keyword_id 非空）
 - `resource_type = 'creator'`：博主内容收集结果（creator_id 非空）
 - `resource_type = 'direct_video'`：视频 URL 提交（两者均空，直接通过 URL 提交）
-
-### 2.2 users（用户表）
-
-| 列名 | 类型 | 说明 |
-|------|------|------|
-| `id` | TEXT (UUID) | 主键 |
-| `email` | TEXT (UNIQUE) | 邮箱（账号） |
-| `password_hash` | TEXT | bcrypt 哈希密码 |
-| `created_at` | INTEGER | 注册时间 |
 
 ### 2.3 keywords（关键词表）
 
@@ -152,6 +169,11 @@
 | `value` | TEXT | 配置值 |
 | `user_id` | TEXT (nullable) | 用户 ID（null 为全局配置） |
 
+**全局配置键：**
+| key | value | 说明 |
+|-----|-------|------|
+| `registration_enabled` | `'true'` / `'false'` | 是否允许新用户注册 |
+
 ### 2.7 hot_topics（热点话题表）
 
 | 列名 | 类型 | 说明 |
@@ -176,10 +198,10 @@
 | 方法 | 路径 | 请求体 | 响应 | 说明 |
 |------|------|--------|------|------|
 | GET | `/captcha` | — | `{ captchaId, svg }` | 图形验证码（4 位数字 SVG） |
-| POST | `/register` | `{ email, password, captchaId, captchaCode }` | `{ success, message, devCode? }` | 注册 Step 1 |
-| POST | `/register/verify` | `{ email, code, password, captchaId, captchaCode }` | `{ token, user }` | 注册 Step 2 |
-| POST | `/login` | `{ email, password, captchaId, captchaCode }` | `{ token, user }` | 登录 |
-| POST | `/resend-code` | `{ email, captchaId, captchaCode }` | `{ success, message }` | 重发验证码 |
+| POST | `/register` | `{ email, password, captchaId, captchaCode }` | `{ success, message, devCode? }` | 注册 Step 1（检查注册开关） |
+| POST | `/register/verify` | `{ email, code, password, captchaId, captchaCode }` | `{ token, user }` | 注册 Step 2（检查注册开关） |
+| POST | `/login` | `{ email, password, captchaId, captchaCode }` | `{ token, user }` | 登录（检查 frozen 状态） |
+| POST | `/resend-code` | `{ email, captchaId, captchaCode }` | `{ success, message }` | 重发验证码（检查注册开关） |
 | GET | `/me` | — | `{ user }` | 当前用户信息（需认证） |
 
 ### 3.2 关键词模块 (`/api/keywords`)
@@ -258,14 +280,27 @@
 - `?resourceType=keyword`：仅筛选关键词资源
 - 不传则返回所有类型
 
-### 3.7 AI 模块 (`/api/ai`)
+### 3.7 管理后台模块 (`/api/admin`)
+
+所有管理后台路由使用 `adminRequired` 中间件（先 `authRequired` 验证 JWT，再校验 `role === 'admin'`）。
+
+| 方法 | 路径 | 参数 | 说明 |
+|------|------|------|------|
+| GET | `/users` | `?page=&pageSize=` | 获取用户列表（不返回 password_hash） |
+| DELETE | `/users/:id` | — | 删除用户（防自删、防删最后管理员、级联删除关联数据） |
+| PATCH | `/users/:id/freeze` | — | 冻结用户（防冻自己、防冻管理员） |
+| PATCH | `/users/:id/unfreeze` | — | 解冻用户 |
+| GET | `/settings` | — | 获取 `registration_enabled` |
+| PUT | `/settings` | `{ registrationEnabled }` | 更新 `registration_enabled` |
+
+### 3.8 AI 模块 (`/api/ai`)
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/chat` | AI 对话 |
 | POST | `/veracity` | 内容真实性校验 |
 
-### 3.8 系统 (`/api/config`, `/api/health`, etc.)
+### 3.9 系统 (`/api/config`, `/api/health`, etc.)
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -279,11 +314,12 @@
 
 ### 4.1 JWT 认证
 
-- **签发**：登录/注册成功后签发，payload `{ userId, email }`
+- **签发**：登录/注册成功后签发，payload `{ userId, email, role }`
 - **过期**：7 天
 - **传输**：`Authorization: Bearer <token>`
-- **存储**：localStorage
+- **存储**：localStorage（主前端和管理后台各自独立管理）
 - **验证**：`authRequired` 中间件，从 header 提取 token → jwt.verify → 注入 `req.user`
+- **角色验证**：`adminRequired` 中间件，在 `authRequired` 基础上校验 `role === 'admin'`
 
 ### 4.2 数据隔离
 
@@ -311,6 +347,13 @@ SELECT * FROM news_items WHERE user_id = ?  -- 强制数据隔离
 - 10 分钟有效期，验证后标记 `used = 1`
 - SMTP 发送（支持 QQ 邮箱 / 163 / Brevo / Resend）
 - 开发模式（SMTP 未配置）自动返回 devCode
+
+### 4.6 管理后台安全
+
+- 管理后台页面不包含敏感前端逻辑，仅通过 API 与后端交互
+- 所有管理 API 受 `adminRequired` 中间件保护
+- 普通用户无法访问任何管理 API（返回 403）
+- 管理员不能冻结自己、不能删除自己、不能删除最后一名管理员
 
 ---
 
@@ -426,6 +469,9 @@ SELECT * FROM news_items WHERE user_id = ?  -- 强制数据隔离
 ```typescript
 // 示例：新增列
 try { db.exec(`ALTER TABLE news_items ADD COLUMN resource_type TEXT DEFAULT 'keyword'`); } catch (e) {}
+// 示例：新增 role/status 列
+try { db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`); } catch (e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); } catch (e) {}
 // 回填数据
 try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE creator_id IS NOT NULL`); } catch (e) {}
 ```
