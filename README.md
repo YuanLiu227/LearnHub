@@ -349,7 +349,6 @@ LearnHub/
 │       │   ├── keyword-manager/     # 关键词管理组件
 │       │   │   ├── KeywordForm.tsx
 │       │   │   └── KeywordList.tsx
-│       │   ├── notification/        # 通知组件
 │       │   └── ui/                  # 基础 UI 组件库
 │       ├── pages/
 │       │   ├── Home.tsx             # 主应用页面
