@@ -14,8 +14,8 @@ import authRouter from './routes/auth.js';
 import videosRouter from './routes/videos.js';
 import adminRouter from './routes/admin.js';
 
-// 加载环境变量 - 从 server 目录向上找 .env 文件
-const envPath = path.join(process.cwd(), '.env');
+// 加载环境变量 - 从 server 目录加载 .env 文件
+const envPath = path.join(process.cwd(), 'server/.env');
 console.log('[Server] Loading env from:', envPath);
 dotenv.config({ path: envPath });
 
@@ -57,10 +57,10 @@ app.use('/api/videos', videosRouter);
 app.use('/api/admin', adminRouter);
 
 // 管理后台静态页面
-app.use('/admin', express.static(path.join(process.cwd(), 'public/admin')));
+app.use('/admin', express.static(path.join(process.cwd(), 'server/public/admin')));
 
 // 生产环境：提供前端 SPA 静态文件
-const clientDist = path.join(process.cwd(), '../client/dist');
+const clientDist = path.join(process.cwd(), 'client/dist');
 app.use(express.static(clientDist));
 // SPA 回退：非 API 路径统一返回 index.html（Express 5 不支持 * 通配符）
 app.use((req, res, next) => {
