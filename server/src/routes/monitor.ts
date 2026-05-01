@@ -80,8 +80,8 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
 
     // 获取所有启用的关键词
     const keywords = userId
-      ? db.prepare('SELECT * FROM keywords WHERE enabled = 1 AND archived IS NOT 1 AND user_id = ?').all(userId) as DbKeywordRow[]
-      : db.prepare('SELECT * FROM keywords WHERE enabled = 1 AND archived IS NOT 1').all() as DbKeywordRow[];
+      ? db.prepare('SELECT * FROM keywords WHERE enabled = 1 AND archived IS NOT 1 AND user_id = ?').all(userId) as unknown as DbKeywordRow[]
+      : db.prepare('SELECT * FROM keywords WHERE enabled = 1 AND archived IS NOT 1').all() as unknown as DbKeywordRow[];
 
     if (keywords.length === 0) {
       emitProgress(monitorId, {

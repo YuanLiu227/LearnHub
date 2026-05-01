@@ -121,10 +121,10 @@ router.patch('/:id', authRequired, (req: AuthRequest, res) => {
     const { enabled } = req.body;
 
     if (enabled !== undefined) {
-      db.prepare('UPDATE followed_creators SET enabled = ? WHERE id = ? AND user_id = ?').run(enabled ? 1 : 0, id, req.user!.userId);
+      db.prepare('UPDATE followed_creators SET enabled = ? WHERE id = ? AND user_id = ?').run(enabled ? 1 : 0, id as string, req.user!.userId);
     }
 
-    const row = db.prepare('SELECT * FROM followed_creators WHERE id = ? AND user_id = ?').get(id, req.user!.userId) as any;
+    const row = db.prepare('SELECT * FROM followed_creators WHERE id = ? AND user_id = ?').get(id as string, req.user!.userId) as any;
     if (!row) return res.status(404).json({ error: '未找到该博主' });
 
     res.json(toFollowedCreator(row));
@@ -138,7 +138,7 @@ router.patch('/:id', authRequired, (req: AuthRequest, res) => {
 router.delete('/:id', authRequired, (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    db.prepare('UPDATE followed_creators SET archived = 1, enabled = 0 WHERE id = ? AND user_id = ?').run(id, req.user!.userId);
+    db.prepare('UPDATE followed_creators SET archived = 1, enabled = 0 WHERE id = ? AND user_id = ?').run(id as string, req.user!.userId);
     res.json({ success: true });
   } catch (error) {
     console.error('[Creators] Error archiving:', error);
@@ -150,7 +150,7 @@ router.delete('/:id', authRequired, (req: AuthRequest, res) => {
 router.post('/restore/:id', authRequired, (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    db.prepare('UPDATE followed_creators SET archived = 0, enabled = 1 WHERE id = ? AND user_id = ?').run(id, req.user!.userId);
+    db.prepare('UPDATE followed_creators SET archived = 0, enabled = 1 WHERE id = ? AND user_id = ?').run(id as string, req.user!.userId);
     res.json({ success: true });
   } catch (error) {
     console.error('[Creators] Error restoring:', error);
@@ -162,8 +162,8 @@ router.post('/restore/:id', authRequired, (req: AuthRequest, res) => {
 router.delete('/permanent/:id', authRequired, (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    db.prepare("DELETE FROM news_items WHERE creator_id = ? AND (favorited IS NOT 1 OR favorited IS NULL) AND user_id = ?").run(id, req.user!.userId);
-    db.prepare('DELETE FROM followed_creators WHERE id = ? AND user_id = ?').run(id, req.user!.userId);
+    db.prepare("DELETE FROM news_items WHERE creator_id = ? AND (favorited IS NOT 1 OR favorited IS NULL) AND user_id = ?").run(id as string, req.user!.userId);
+    db.prepare('DELETE FROM followed_creators WHERE id = ? AND user_id = ?').run(id as string, req.user!.userId);
     res.json({ success: true });
   } catch (error) {
     console.error('[Creators] Error permanent deleting:', error);

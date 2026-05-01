@@ -117,7 +117,7 @@ router.post('/restore', authRequired, (req: AuthRequest, res) => {
 // 永久删除关键词 + 关联资源
 router.delete('/permanent', authRequired, (req: AuthRequest, res) => {
   try {
-    const { id } = req.query;
+    const id = req.query.id as string;
     if (!id) return res.status(400).json({ error: 'id is required' });
 
     db.prepare("DELETE FROM news_items WHERE keyword_id = ? AND (favorited IS NOT 1 OR favorited IS NULL) AND user_id = ?").run(id, req.user!.userId);

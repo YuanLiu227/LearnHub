@@ -53,6 +53,18 @@ app.use('/api/admin', adminRouter);
 // 管理后台静态页面
 app.use('/admin', express.static(path.join(process.cwd(), 'public/admin')));
 
+// 生产环境：提供前端 SPA 静态文件
+const clientDist = path.join(process.cwd(), '../client/dist');
+app.use(express.static(clientDist));
+// SPA 回退：非 API 路径统一返回 index.html（Express 5 不支持 * 通配符）
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  } else {
+    next();
+  }
+});
+
 // 健康检查
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });

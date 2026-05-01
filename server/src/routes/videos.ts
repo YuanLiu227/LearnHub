@@ -163,7 +163,7 @@ router.get('/', authRequired, (req: AuthRequest, res) => {
     const countResult = db.prepare(`
       SELECT COUNT(*) as count FROM news_items
       WHERE resource_type = 'direct_video' AND user_id = ?
-    `).get(userId) as CountRow;
+    `).get(userId) as unknown as CountRow;
 
     const items = rows.map((row: any) => ({
       id: row.id,

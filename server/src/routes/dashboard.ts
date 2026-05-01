@@ -63,10 +63,10 @@ router.get('/stats', authRequired, (req: AuthRequest, res) => {
     const todayStart = new Date().setHours(0, 0, 0, 0);
     const userId = req.user!.userId;
 
-    const totalHotspots = (db.prepare('SELECT COUNT(*) as count FROM news_items WHERE user_id = ?').get(userId) as CountRow).count;
-    const todayNew = (db.prepare('SELECT COUNT(*) as count FROM news_items WHERE matched_at > ? AND user_id = ?').get(todayStart, userId) as CountRow).count;
-    const urgentHot = (db.prepare('SELECT COUNT(*) as count FROM news_items WHERE is_urgent = 1 AND user_id = ?').get(userId) as CountRow).count;
-    const monitoredKeywords = (db.prepare('SELECT COUNT(*) as count FROM keywords WHERE enabled = 1 AND user_id = ?').get(userId) as CountRow).count;
+    const totalHotspots = (db.prepare('SELECT COUNT(*) as count FROM news_items WHERE user_id = ?').get(userId) as unknown as CountRow).count;
+    const todayNew = (db.prepare('SELECT COUNT(*) as count FROM news_items WHERE matched_at > ? AND user_id = ?').get(todayStart, userId) as unknown as CountRow).count;
+    const urgentHot = (db.prepare('SELECT COUNT(*) as count FROM news_items WHERE is_urgent = 1 AND user_id = ?').get(userId) as unknown as CountRow).count;
+    const monitoredKeywords = (db.prepare('SELECT COUNT(*) as count FROM keywords WHERE enabled = 1 AND user_id = ?').get(userId) as unknown as CountRow).count;
 
     const stats: DashboardStats = {
       totalHotspots,
@@ -111,9 +111,9 @@ router.get('/hotspots', authRequired, (req: AuthRequest, res) => {
     const countResult = db.prepare(`
       SELECT COUNT(*) as count FROM news_items n
       ${whereClause}
-    `).get(...params) as CountRow;
+    `).get(...params) as unknown as CountRow;
 
-    const items = (rows as NewsItemRow[]).map((row) => ({
+    const items = (rows as unknown as NewsItemRow[]).map((row) => ({
       id: row.id,
       keywordId: row.keyword_id,
       keywordTerm: row.keyword_term,
@@ -163,7 +163,7 @@ router.get('/search', authRequired, (req: AuthRequest, res) => {
       WHERE (n.title LIKE ? OR n.summary LIKE ? OR k.term LIKE ?) AND n.user_id = ?
       ORDER BY n.heat DESC, n.matched_at DESC
       LIMIT ? OFFSET ?
-    `).all(searchTerm, searchTerm, searchTerm, userId, Number(pageSize), offset) as NewsItemRow[];
+    `).all(searchTerm, searchTerm, searchTerm, userId, Number(pageSize), offset) as unknown as NewsItemRow[];
 
     const hotRows = db.prepare(`
       SELECT
@@ -175,7 +175,7 @@ router.get('/search', authRequired, (req: AuthRequest, res) => {
       FROM hot_topics
       WHERE title LIKE ? OR summary LIKE ?
       ORDER BY fetched_at DESC
-    `).all(searchTerm, searchTerm) as HotTopicRow[];
+    `).all(searchTerm, searchTerm) as unknown as HotTopicRow[];
 
     // 合并结果，按 matched_at 倒序，去重 URL
     const seenUrls = new Set<string>();
@@ -197,7 +197,7 @@ router.get('/search', authRequired, (req: AuthRequest, res) => {
         UNION
         SELECT url FROM hot_topics WHERE title LIKE ? OR summary LIKE ?
       )
-    `).get(searchTerm, searchTerm, searchTerm, userId, searchTerm, searchTerm) as CountRow).count;
+    `).get(searchTerm, searchTerm, searchTerm, userId, searchTerm, searchTerm) as unknown as CountRow).count;
 
     const items = (merged as any[]).map((row) => ({
       id: row.id,
@@ -242,7 +242,7 @@ router.patch('/resource/:id', authRequired, (req: AuthRequest, res) => {
 
     // 取消收藏时检查关联实体是否存在
     if (favorited === false) {
-      const item = db.prepare('SELECT keyword_id, creator_id FROM news_items WHERE id = ? AND user_id = ?').get(id, userId) as any;
+      const item = db.prepare('SELECT keyword_id, creator_id FROM news_items WHERE id = ? AND user_id = ?').get(id as string, userId) as any;
       if (item) {
         let hasAssociation = false;
         let allGone = true;
@@ -259,7 +259,7 @@ router.patch('/resource/:id', authRequired, (req: AuthRequest, res) => {
           }
         }
         if (hasAssociation && allGone) {
-          db.prepare('DELETE FROM news_items WHERE id = ? AND user_id = ?').run(id, userId);
+          db.prepare('DELETE FROM news_items WHERE id = ? AND user_id = ?').run(id as string, userId);
           return res.json({ success: true, deleted: true });
         }
       }
@@ -307,7 +307,7 @@ router.get('/favorites', authRequired, (req: AuthRequest, res) => {
 
     const countResult = db.prepare(`
       SELECT COUNT(*) as count FROM news_items WHERE favorited = 1 AND user_id = ?
-    `).get(userId) as CountRow;
+    `).get(userId) as unknown as CountRow;
 
     const items = rows.map((row: any) => ({
       id: row.id,
@@ -380,7 +380,7 @@ router.post('/resources/batch-delete', authRequired, (req: AuthRequest, res) => 
 router.delete('/resource/:id', authRequired, (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    db.prepare('DELETE FROM news_items WHERE id = ? AND user_id = ?').run(id, req.user!.userId);
+    db.prepare('DELETE FROM news_items WHERE id = ? AND user_id = ?').run(id as string, req.user!.userId);
     res.json({ success: true });
   } catch (error) {
     console.error('Delete resource error:', error);

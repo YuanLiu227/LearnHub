@@ -38,7 +38,7 @@ router.delete('/users/:id', (req: AuthRequest, res) => {
     }
 
     // 检查目标用户是否存在
-    const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(id) as any;
+    const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(id as string) as any;
     if (!target) {
       return res.status(404).json({ error: '用户不存在' });
     }
@@ -52,12 +52,12 @@ router.delete('/users/:id', (req: AuthRequest, res) => {
     }
 
     // 级联删除关联数据
-    db.prepare('DELETE FROM news_items WHERE user_id = ?').run(id);
-    db.prepare('DELETE FROM keywords WHERE user_id = ?').run(id);
-    db.prepare('DELETE FROM followed_creators WHERE user_id = ?').run(id);
-    db.prepare("DELETE FROM config WHERE user_id = ?").run(id);
-    db.prepare('DELETE FROM verification_codes WHERE email = (SELECT email FROM users WHERE id = ?)').run(id);
-    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    db.prepare('DELETE FROM news_items WHERE user_id = ?').run(id as string);
+    db.prepare('DELETE FROM keywords WHERE user_id = ?').run(id as string);
+    db.prepare('DELETE FROM followed_creators WHERE user_id = ?').run(id as string);
+    db.prepare("DELETE FROM config WHERE user_id = ?").run(id as string);
+    db.prepare('DELETE FROM verification_codes WHERE email = (SELECT email FROM users WHERE id = ?)').run(id as string);
+    db.prepare('DELETE FROM users WHERE id = ?').run(id as string);
 
     res.json({ success: true });
   } catch (error: any) {
@@ -76,7 +76,7 @@ router.patch('/users/:id/freeze', (req: AuthRequest, res) => {
       return res.status(400).json({ error: '不能冻结自己的账号' });
     }
 
-    const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(id) as any;
+    const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(id as string) as any;
     if (!target) {
       return res.status(404).json({ error: '用户不存在' });
     }
@@ -86,7 +86,7 @@ router.patch('/users/:id/freeze', (req: AuthRequest, res) => {
       return res.status(400).json({ error: '不能冻结管理员账号' });
     }
 
-    db.prepare("UPDATE users SET status = 'frozen' WHERE id = ?").run(id);
+    db.prepare("UPDATE users SET status = 'frozen' WHERE id = ?").run(id as string);
     res.json({ success: true });
   } catch (error: any) {
     console.error('Admin freeze user error:', error);
@@ -99,12 +99,12 @@ router.patch('/users/:id/unfreeze', (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
 
-    const target = db.prepare('SELECT id FROM users WHERE id = ?').get(id) as any;
+    const target = db.prepare('SELECT id FROM users WHERE id = ?').get(id as string) as any;
     if (!target) {
       return res.status(404).json({ error: '用户不存在' });
     }
 
-    db.prepare("UPDATE users SET status = 'active' WHERE id = ?").run(id);
+    db.prepare("UPDATE users SET status = 'active' WHERE id = ?").run(id as string);
     res.json({ success: true });
   } catch (error: any) {
     console.error('Admin unfreeze user error:', error);
