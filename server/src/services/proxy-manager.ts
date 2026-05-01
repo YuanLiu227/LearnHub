@@ -215,29 +215,14 @@ proxy-providers:
     type: http
     url: "${subscriptionUrl}"
     interval: 86400
-    health-check:
-      enable: true
-      url: http://www.gstatic.com/generate_204
-      interval: 300
 
 proxy-groups:
   - name: Proxy
     type: select
-    proxies:
-      - AUTO
     use:
       - provider1
-  - name: AUTO
-    type: url-test
-    proxies:
-      - DIRECT
-    use:
-      - provider1
-    url: http://www.gstatic.com/generate_204
-    interval: 300
 
 rules:
-  - GEOIP,CN,DIRECT
   - MATCH,Proxy
 `;
   }

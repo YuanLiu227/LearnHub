@@ -248,7 +248,7 @@ export async function getYouTubeChannelVideos(channelId: string, limit: number =
 
     if (videoIds.length === 0) return [];
 
-    const statsMap = await getYouTubeVideoStats(videoIds);
+    const statsMap = await getYouTubeVideoStats(videoIds, userId);
 
     const results: any[] = [];
     for (const item of items) {
