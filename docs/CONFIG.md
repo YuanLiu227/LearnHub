@@ -405,8 +405,8 @@ mihomo --version
 
 | type | 效果 |
 |------|------|
-| `'keywords'` | 删除所有 `keyword_id IS NOT NULL` 的资源 |
-| `'creators'` | 删除所有 `creator_id IS NOT NULL` 的资源 |
+| `'keywords'` | 删除所有 `resource_type = 'keyword'` 的资源 |
+| `'creators'` | 删除所有 `resource_type = 'creator'` 的资源 |
 | `'direct_video'` | 删除所有 `resource_type = 'direct_video'` 的资源 |
 
 `POST /api/dashboard/resources/batch-delete-by-ids`
