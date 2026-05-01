@@ -47,6 +47,7 @@ interface AppState {
   newResourceItems: NewsItem[];
   fetchStats: () => Promise<void>;
   fetchResources: (page?: number) => Promise<void>;
+  fetchResourcesByType: (page: number, resourceType?: string) => Promise<void>;
   clearNewResourceItems: () => void;
   favoriteResources: NewsItem[];
   favoriteResourcesTotal: number;
@@ -274,6 +275,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  fetchResourcesByType: async (page: number, resourceType?: string) => {
+    try {
+      const data = await dashboardApi.getHotspots(page, 20, undefined, resourceType);
+      set({
+        resources: data.items.filter((r: NewsItem) => !r.favorited),
+        resourcesTotal: data.total,
+        error: null,
+      });
+    } catch (error: any) {
+      set({ error: error.message || '获取资源失败' });
+    }
+  },
+
   clearNewResourceItems: () => set({ newResourceItems: [] }),
 
   // 收藏资源
@@ -366,14 +380,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
           if (progress.stage === 'completed' || progress.stage === 'error') {
             clearInterval(pollInterval);
-            setTimeout(() => {
+            setTimeout(async () => {
               set({ isSearching: false, searchProgress: null });
               get().fetchStats();
-              get().fetchResources().then(() => {
-                const latest = get().resources;
-                const newItems = latest.filter(item => item.matchedAt >= startedAt);
+              try {
+                const allData = await dashboardApi.getHotspots(1, 100);
+                const newItems = allData.items.filter((item: NewsItem) => !item.favorited && item.matchedAt >= startedAt);
                 set({ newResourceItems: newItems });
-              });
+              } catch {}
             }, 2000);
           }
         } catch (e: any) {
@@ -426,7 +440,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isSubmittingVideo: true, error: null });
     try {
       await videosApi.submit(url, platform);
-      await get().fetchResources();
       set({ isSubmittingVideo: false, error: null });
     } catch (error: any) {
       const msg = error.response?.data?.error || error.message || '添加视频失败';
@@ -438,7 +451,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   batchDeleteResources: async (type: 'keywords' | 'creators' | 'direct_video') => {
     try {
       await dashboardApi.batchDeleteResources(type);
-      await get().fetchResources();
       set({ error: null });
     } catch (error: any) {
       set({ error: error.message || '批量清除失败' });
@@ -448,7 +460,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   batchDeleteResourcesByIds: async (ids: string[]) => {
     try {
       await dashboardApi.batchDeleteResourcesByIds(ids);
-      await get().fetchResources();
       set({ error: null });
     } catch (error: any) {
       set({ error: error.message || '批量删除失败' });
@@ -576,7 +587,6 @@ export const useAppStore = create<AppState>((set, get) => ({
             setTimeout(() => {
               set({ isCollectingCreators: false, creatorCollectProgress: null });
               get().fetchStats();
-              get().fetchResources();
               get().fetchFollowedCreators();
             }, 2000);
           }

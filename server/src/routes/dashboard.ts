@@ -104,7 +104,7 @@ router.get('/hotspots', authRequired, (req: AuthRequest, res) => {
       FROM news_items n
       LEFT JOIN keywords k ON n.keyword_id = k.id
       ${whereClause}
-      ORDER BY n.heat DESC, n.matched_at DESC
+      ORDER BY n.published_at DESC
       LIMIT ? OFFSET ?
     `).all(...params, Number(pageSize), offset);
 
@@ -161,7 +161,7 @@ router.get('/search', authRequired, (req: AuthRequest, res) => {
       FROM news_items n
       LEFT JOIN keywords k ON n.keyword_id = k.id
       WHERE (n.title LIKE ? OR n.summary LIKE ? OR k.term LIKE ?) AND n.user_id = ?
-      ORDER BY n.heat DESC, n.matched_at DESC
+      ORDER BY n.published_at DESC
       LIMIT ? OFFSET ?
     `).all(searchTerm, searchTerm, searchTerm, userId, Number(pageSize), offset) as unknown as NewsItemRow[];
 
@@ -361,9 +361,9 @@ router.post('/resources/batch-delete', authRequired, (req: AuthRequest, res) => 
     const { type } = req.body;
     const userId = req.user!.userId;
     if (type === 'keywords') {
-      db.prepare('DELETE FROM news_items WHERE keyword_id IS NOT NULL AND user_id = ?').run(userId);
+      db.prepare("DELETE FROM news_items WHERE resource_type = 'keyword' AND user_id = ?").run(userId);
     } else if (type === 'creators') {
-      db.prepare('DELETE FROM news_items WHERE creator_id IS NOT NULL AND user_id = ?').run(userId);
+      db.prepare("DELETE FROM news_items WHERE resource_type = 'creator' AND user_id = ?").run(userId);
     } else if (type === 'direct_video') {
       db.prepare("DELETE FROM news_items WHERE resource_type = 'direct_video' AND user_id = ?").run(userId);
     } else {

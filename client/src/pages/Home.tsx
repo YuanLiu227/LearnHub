@@ -289,7 +289,7 @@ function ResourceCard({ item, delay, onDelete, onToggleComplete, onToggleFavorit
 function DashboardView() {
   const PAGE_SIZE = 20;
   const {
-    stats, resources, fetchStats, fetchResources,
+    stats, resources, resourcesTotal, fetchStats, fetchResourcesByType,
     isSearching, searchProgress,
     isCollectingCreators, creatorCollectProgress,
     deleteResource,
@@ -298,9 +298,7 @@ function DashboardView() {
   } = useAppStore();
 
   const [resourceTab, setResourceTab] = useState<'keywords' | 'creators' | 'direct_video'>('keywords');
-  const [kwPage, setKwPage] = useState(1);
-  const [crPage, setCrPage] = useState(1);
-  const [dvPage, setDvPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedCreator, setSelectedCreator] = useState<string | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -322,43 +320,39 @@ function DashboardView() {
     setConfirmBatchDeleteIds(false);
   };
 
-  const handleBatchDeleteByIds = () => {
-    batchDeleteResourcesByIds([...selectedIds]);
+  const handleBatchDeleteByIds = async () => {
+    await batchDeleteResourcesByIds([...selectedIds]);
+    fetchResourcesByType(currentPage, resourceTypeMap[resourceTab]);
     exitSelectMode();
+  };
+
+  const resourceTypeMap: Record<string, string | undefined> = {
+    keywords: 'keyword',
+    creators: 'creator',
+    direct_video: 'direct_video',
   };
 
   useEffect(() => {
     fetchStats();
-    fetchResources(1);
+    fetchResourcesByType(currentPage, resourceTypeMap[resourceTab]);
   }, []);
 
-  // 按类型过滤
-  const kwResources = resources.filter(r => r.keywordId);
-  const crResources = resources.filter(r => r.creatorId && !r.keywordId)
-    .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
-  const dvResources = resources.filter(r => r.resourceType === 'direct_video');
+  // 切换标签/翻页时重新获取数据
+  useEffect(() => {
+    fetchResourcesByType(currentPage, resourceTypeMap[resourceTab]);
+  }, [resourceTab, currentPage]);
 
-  // 博主筛选
-  const creatorNames = [...new Set(crResources.map(r => r.creatorName).filter(Boolean))] as string[];
-  const crFiltered = selectedCreator
-    ? crResources.filter(r => r.creatorName === selectedCreator)
-    : crResources;
-  const filteredResources = resourceTab === 'keywords' ? kwResources : resourceTab === 'creators' ? crFiltered : dvResources;
-  const currentPage = resourceTab === 'keywords' ? kwPage : resourceTab === 'creators' ? crPage : dvPage;
-  const totalFiltered = resourceTab === 'keywords' ? kwResources.length : resourceTab === 'creators' ? crResources.length : dvResources.length;
-  const totalFilteredPages = Math.ceil(totalFiltered / PAGE_SIZE);
+  // 博主筛选（仅 creators 标签有效）
+  const creatorNames = [...new Set(resources.map(r => r.creatorName).filter(Boolean))] as string[];
+  const crFiltered = resourceTab === 'creators' && selectedCreator
+    ? resources.filter(r => r.creatorName === selectedCreator)
+    : resources;
+  const displayResources = resourceTab === 'creators' ? crFiltered : resources;
+  const totalFilteredPages = Math.ceil(resourcesTotal / PAGE_SIZE);
 
   const handlePageChange = (newPage: number) => {
-    if (resourceTab === 'keywords') setKwPage(newPage);
-    else if (resourceTab === 'creators') setCrPage(newPage);
-    else setDvPage(newPage);
+    setCurrentPage(newPage);
   };
-
-  // 分页
-  const pagedResources = filteredResources.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
 
   return (
     <div className="space-y-8">
@@ -411,17 +405,15 @@ function DashboardView() {
         <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
           <div className="flex gap-4">
             {[
-              { id: 'keywords' as const, label: '关键词资源', count: kwResources.length },
-              { id: 'creators' as const, label: '博主资源', count: crResources.length },
-              { id: 'direct_video' as const, label: '视频资源', count: dvResources.length },
+              { id: 'keywords' as const, label: '关键词资源' },
+              { id: 'creators' as const, label: '博主资源' },
+              { id: 'direct_video' as const, label: '视频资源' },
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => {
                   setResourceTab(tab.id);
-                  if (tab.id === 'keywords') setKwPage(1);
-                  else if (tab.id === 'creators') setCrPage(1);
-                  else setDvPage(1);
+                  setCurrentPage(1);
                 }}
                 className={`flex items-center gap-1.5 text-xs font-medium transition-colors relative pb-3 -mb-3 ${
                   resourceTab === tab.id
@@ -430,7 +422,6 @@ function DashboardView() {
                 }`}
               >
                 {tab.label}
-                <span className="text-[10px] opacity-60">({tab.count})</span>
                 {resourceTab === tab.id && (
                   <motion.div
                     layoutId="resourceTab"
@@ -452,9 +443,11 @@ function DashboardView() {
             ) : (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const deleteType = resourceTab === 'direct_video' ? 'direct_video' : resourceTab;
-                    batchDeleteResources(deleteType);
+                    await batchDeleteResources(deleteType);
+                    fetchResourcesByType(1, resourceTypeMap[resourceTab]);
+                    setCurrentPage(1);
                     setConfirmBatchClear(false);
                   }}
                   className="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
@@ -516,7 +509,7 @@ function DashboardView() {
           </div>
         )}
 
-        {pagedResources.length === 0 ? (
+        {displayResources.length === 0 ? (
           <Card className="p-12 flex items-center justify-center">
             <p className="text-sm text-text-tertiary">
               {resourceTab === 'keywords' ? '暂无关键词资源，点击右上角「关键词搜索」开始查找' :
@@ -526,7 +519,7 @@ function DashboardView() {
           </Card>
         ) : (
           <div className="space-y-2">
-            {pagedResources.map((item, i) => (
+            {displayResources.map((item, i) => (
               <ResourceCard
                 key={item.id}
                 item={item}
@@ -577,7 +570,7 @@ function DashboardView() {
         <Pagination
           page={currentPage}
           totalPages={totalFilteredPages}
-          total={totalFiltered}
+          total={resourcesTotal}
           onChange={handlePageChange}
         />
       </div>

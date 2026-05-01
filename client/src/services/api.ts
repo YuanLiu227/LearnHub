@@ -144,9 +144,10 @@ export const dashboardApi = {
     return response.data;
   },
 
-  getHotspots: async (page = 1, pageSize = 20, source?: string) => {
+  getHotspots: async (page = 1, pageSize = 20, source?: string, resourceType?: string) => {
     const params: any = { page, pageSize };
     if (source && source !== 'all') params.source = source;
+    if (resourceType) params.resourceType = resourceType;
     const response = await api.get('/dashboard/hotspots', { params });
     return response.data;
   },

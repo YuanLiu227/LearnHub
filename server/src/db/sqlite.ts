@@ -120,8 +120,11 @@ try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); } catch (e) {}
 try { db.exec(`ALTER TABLE news_items ADD COLUMN resource_type TEXT DEFAULT 'keyword'`); } catch (e) {}
-try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE creator_id IS NOT NULL AND resource_type IS NULL`); } catch (e) {}
-try { db.exec(`UPDATE news_items SET resource_type = 'keyword' WHERE keyword_id IS NOT NULL AND resource_type IS NULL`); } catch (e) {}
+try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE creator_id IS NOT NULL AND keyword_id IS NULL`); } catch (e) {}
+try { db.exec(`UPDATE news_items SET resource_type = 'direct_video' WHERE keyword_id IS NULL AND creator_id IS NULL`); } catch (e) {}
+// 修复：旧迁移 DEFAULT 'keyword' 导致所有行的 resource_type 被错误设为 'keyword'
+try { db.exec(`UPDATE news_items SET resource_type = 'direct_video' WHERE resource_type = 'keyword' AND keyword_id IS NULL AND creator_id IS NULL`); } catch (e) {}
+try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE resource_type = 'keyword' AND creator_id IS NOT NULL AND keyword_id IS NULL`); } catch (e) {}
 
 // 迁移：如果 keyword_id 为 NOT NULL，则重建 news_items 表以支持空值
 try {
