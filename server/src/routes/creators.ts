@@ -3,7 +3,6 @@ import db from '../db/sqlite.js';
 import { searchBilibiliUser, searchYouTubeChannel, collectCreatorContent } from '../services/creator-collector.js';
 import { progressEmitter, type MonitorProgress } from '../services/progress.js';
 import { deduplicateItems } from '../services/dedup.js';
-import { notify } from '../services/notifier.js';
 import type { FollowedCreator } from '../types/index.js';
 import { authRequired, type AuthRequest } from '../middleware/auth.js';
 
@@ -275,13 +274,6 @@ export async function runCreatorCollection(collectId: string = `creator_${Date.n
           );
 
           verifiedCount++;
-
-          notify({
-            type: 'keyword_match',
-            title: `博主更新: ${item._creatorName || '关注博主'}`,
-            body: item.title || '',
-            url: item.url,
-          }).catch(err => console.error('Notify error:', err));
 
         } catch (dbError: any) {
           console.error(`[CreatorCollect] Insert error:`, dbError.message);

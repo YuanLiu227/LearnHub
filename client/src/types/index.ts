@@ -57,9 +57,6 @@ export interface HotTopic {
 }
 
 export interface AppConfig {
-  emailEnabled: boolean;
-  notificationEnabled: boolean;
-  email?: string;
 }
 
 // 监控间隔选项（分钟）

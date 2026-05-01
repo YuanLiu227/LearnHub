@@ -55,9 +55,6 @@ export interface HotTopic {
 export interface Config {
   hotInterval: number;
   monitorInterval: number;
-  emailEnabled: boolean;
-  notificationEnabled: boolean;
-  email?: string;
 }
 
 export interface VeracityResult {

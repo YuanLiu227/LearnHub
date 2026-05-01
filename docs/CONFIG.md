@@ -43,7 +43,6 @@
 | `SMTP_USER` | SMTP 用户名（邮箱地址）— **此邮箱注册时自动成为管理员** | — |
 | `SMTP_PASS` | SMTP 密码/应用密码 | — |
 | `SMTP_FROM` | 发件人地址，格式 `Name <email>` | — |
-| `NOTIFICATION_EMAIL` | 通知接收邮箱 | — |
 
 **常用 SMTP 配置：**
 

@@ -232,7 +232,6 @@ SMTP 配置用于发送注册验证码。**SMTP_USER 邮箱对应的注册账号
 | `SMTP_USER` | SMTP 用户名（**此邮箱注册时自动成为管理员**） | — |
 | `SMTP_PASS` | SMTP 密码/应用密码 | — |
 | `SMTP_FROM` | 发件人地址，格式 `Name <email>` | — |
-| `NOTIFICATION_EMAIL` | 通知接收邮箱 | — |
 
 ### MCP 配置
 
@@ -392,7 +391,6 @@ LearnHub/
 │       │   ├── scoring.ts           # 综合评分引擎
 │       │   ├── dedup.ts             # Bigram Jaccard 去重算法
 │       │   ├── progress.ts          # 异步进度管理（ProgressEmitter）
-│       │   ├── notifier.ts          # 邮件通知服务
 │       │   └── context7-mcp.ts      # Context7 MCP 集成
 │       ├── middleware/
 │       │   └── auth.ts              # JWT 认证中间件 + adminRequired

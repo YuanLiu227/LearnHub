@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import db from '../db/sqlite.js';
-import { notify } from '../services/notifier.js';
 import { progressEmitter, type MonitorProgress } from '../services/progress.js';
 import { calcCombinedScore } from '../services/scoring.js';
 import { deduplicateItems } from '../services/dedup.js';
@@ -251,13 +250,6 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
               );
 
               verifiedCount++;
-
-              notify({
-                type: 'keyword_match',
-                title: `关键词匹配: ${keyword.term}`,
-                body: item.title,
-                url: item.url,
-              }).catch(err => console.error('Notify error:', err));
 
             } catch (dbError: any) {
               console.error(`[Monitor] DB insert error:`, dbError.message);

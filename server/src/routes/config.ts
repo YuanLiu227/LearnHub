@@ -10,8 +10,6 @@ const router = Router();
 const defaultConfig = {
   hotInterval: 1800000,      // 30 分钟
   monitorInterval: 900000,   // 15 分钟
-  emailEnabled: true,
-  notificationEnabled: true,
 };
 
 // 获取配置

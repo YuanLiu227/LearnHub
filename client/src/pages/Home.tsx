@@ -32,7 +32,6 @@ import { Badge } from '@/components/ui/badge';
 import { KeywordForm } from '@/components/keyword-manager/KeywordForm';
 import { KeywordList } from '@/components/keyword-manager/KeywordList';
 import { useAppStore, type TabType } from '@/stores/appStore';
-import { requestNotificationPermission } from '@/hooks/useNotification';
 import { CreatorView } from '@/components/creator-manager/CreatorView';
 import { SettingsView } from '@/components/settings/SettingsView';
 
@@ -1108,10 +1107,6 @@ export function Home() {
 
   useEffect(() => {
     checkAuth();
-  }, []);
-
-  useEffect(() => {
-    requestNotificationPermission();
   }, []);
 
   useEffect(() => {

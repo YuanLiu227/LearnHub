@@ -47,11 +47,7 @@
     "hotRefreshInterval": 1800000,
     "monitorInterval": 900000
   },
-  "notification": {
-    "browserEnabled": true,
-    "emailEnabled": true
-  },
-  "client": {
+"client": {
     "apiBaseUrl": "/api",
     "devServerPort": 5173
   }

@@ -456,10 +456,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // 配置
-  config: {
-    emailEnabled: true,
-    notificationEnabled: true,
-  },
+  config: {},
   fetchConfig: async () => {
     try {
       const config = await configApi.get();
