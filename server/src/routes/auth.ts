@@ -172,7 +172,7 @@ router.post('/login', (req, res) => {
 
     const row = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
     if (!row) {
-      return res.status(401).json({ error: '邮箱或密码错误' });
+      return res.status(401).json({ error: '该邮箱未注册，请先注册账号' });
     }
 
     if (row.status === 'frozen') {
