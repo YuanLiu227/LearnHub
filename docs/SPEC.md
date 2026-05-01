@@ -69,6 +69,7 @@
 | 邮件 | nodemailer | latest |
 | HTTP 客户端 | axios | latest |
 | 加密 | Node.js crypto (AES-256-GCM) | 内置 |
+| 代理客户端 | mihomo（Clash Meta 内核） | latest |
 | 管理后台 | 独立 HTML/CSS/JS | 无构建依赖 |
 
 ---
@@ -180,7 +181,8 @@
 |-----|------|------|----------|
 | `DEEPSEEK_API_KEY` | API 密钥 | DeepSeek API 密钥，用于 AI 服务 | ✅ AES-256-GCM |
 | `YOUTUBE_API_KEY` | API 密钥 | YouTube Data API v3 密钥 | ✅ AES-256-GCM |
-| `YOUTUBE_PROXY_URL` | 代理地址 | YouTube API 代理地址（国内需要） | ✅ AES-256-GCM |
+| `YOUTUBE_PROXY_URL` | 代理地址 | YouTube API 代理地址（系统自动配置，无需手动设置） | ✅ AES-256-GCM |
+| `YOUTUBE_SUBSCRIPTION_URL` | 订阅链接 | 机场订阅链接，系统自动启动 mihomo 代理 | ✅ AES-256-GCM |
 | `ENABLE_BILIBILI` | 开关 | Bilibili 数据源开关 | ❌ |
 | `ENABLE_YOUTUBE` | 开关 | YouTube 数据源开关 | ❌ |
 | `ENABLE_CODENAV` | 开关 | 编程导航数据源开关 | ❌ |
@@ -316,6 +318,7 @@
   "DEEPSEEK_API_KEY": { "value": "sk-***9244", "source": "user" },
   "YOUTUBE_API_KEY": { "value": "AIz***xAYA", "source": "user" },
   "YOUTUBE_PROXY_URL": { "value": "http://***:***@127.0.0.1:15732", "source": "user" },
+  "YOUTUBE_SUBSCRIPTION_URL": { "value": "htt***ken", "source": "user" },
   "ENABLE_BILIBILI": { "value": "true", "source": "default" },
   "ENABLE_YOUTUBE": { "value": "true", "source": "default" },
   "ENABLE_CODENAV": { "value": "true", "source": "default" },
@@ -334,6 +337,7 @@
 **密钥掩码规则：**
 - API 密钥（`DEEPSEEK_API_KEY`、`YOUTUBE_API_KEY`）：显示前 3 位 + `****` + 后 4 位
 - 代理 URL（`YOUTUBE_PROXY_URL`）：提取 URL 密码部分并掩码
+- 订阅链接（`YOUTUBE_SUBSCRIPTION_URL`）：显示前 3 位 + `****` + 后 4 位
 - 仅在 `source === 'user'` 时掩码，env/default/none 来源的密钥不返回
 
 ### 3.8 管理后台模块 (`/api/admin`)
@@ -415,6 +419,7 @@ SELECT * FROM news_items WHERE user_id = ?  -- 强制数据隔离
 - **响应掩码**：`/api/config/user` 返回时自动掩码密钥字段
   - API 密钥：`sk-****9244`（前 3 后 4）
   - 代理 URL：`http://***:***@hostname:port`
+  - 订阅链接：`htt***ken`（前 3 后 4）
 - **存储解密**：纯文本从 `user_config` 读取时检测加密格式并自动解密
 
 ### 4.7 管理后台安全
@@ -508,6 +513,41 @@ SELECT * FROM news_items WHERE user_id = ?  -- 强制数据隔离
    → 任一存在 → 回到资源总览
 ```
 
+### 5.6 代理配置流
+
+```
+用户输入订阅链接 → PUT /api/config/user { key: "YOUTUBE_SUBSCRIPTION_URL", value: "https://..." }
+         ↓
+   加密存储至 user_config 表（AES-256-GCM）
+         ↓
+   proxyManager.register(userId, url)
+         ↓
+   MD5(url)[:8] → 检查是否已存在相同 hash
+         ↓
+   已存在 → 加入共享实例
+   不存在 → 分配端口 15733+ → 写入 mihomo config.yaml
+         ↓
+   spawn('mihomo', ['-d', configDir])
+         ↓
+   检测 stdout/stderr 输出确认启动（3 秒 fallback 超时）
+         ↓
+   自动写入 YOUTUBE_PROXY_URL = http://127.0.0.1:{port}
+         ↓
+   YouTube API 调用 getYouTubeVideoStats(ids, userId)
+         ↓
+   getProxyAgent(userId) → getUserConfigValue('YOUTUBE_PROXY_URL', userId)
+         ↓
+   HttpsProxyAgent → axios → mihomo → YouTube（正常访问）
+
+用户清除订阅链接 → PUT /api/config/user { key: "YOUTUBE_SUBSCRIPTION_URL", value: null }
+         ↓
+   proxyManager.unregister(userId)
+         ↓
+   删除 YOUTUBE_PROXY_URL → 从共享实例移除 userId
+         ↓
+   实例无用户 → stopInstance → kill mihomo → 释放端口
+```
+
 ---
 
 ## 6. 评分体系
@@ -546,7 +586,7 @@ SELECT * FROM news_items WHERE user_id = ?  -- 强制数据隔离
 | 数据源 | 文件 | 鉴权 | 用途 |
 |--------|------|------|------|
 | Bilibili | `bilibili-api.ts` | 无需密钥 | 搜索/博主收集/视频提交 |
-| YouTube | `youtube-api.ts` | API Key（用户配置） | 搜索/博主收集/视频提交 |
+| YouTube | `youtube-api.ts` | API Key（用户配置）+ mihomo 代理 | 搜索/博主收集/视频提交 |
 | 编程导航 | `codefather-api.ts` | 无需密钥 | 关键词搜索 |
 | 鱼皮AI导航 | `ai-codefather-api.ts` | 无需密钥 | 关键词搜索 |
 
@@ -559,6 +599,7 @@ SELECT * FROM news_items WHERE user_id = ?  -- 强制数据隔离
 ```typescript
 USER_CONFIG_KEYS = [
   'DEEPSEEK_API_KEY', 'YOUTUBE_API_KEY', 'YOUTUBE_PROXY_URL',
+  'YOUTUBE_SUBSCRIPTION_URL',
   'ENABLE_BILIBILI', 'ENABLE_YOUTUBE', 'ENABLE_CODENAV', 'ENABLE_AI_CODEFATHER',
 ];
 
@@ -593,7 +634,57 @@ chat(messages, model?, userId?)           // getUserConfigValue('DEEPSEEK_API_KE
 checkVeracity(title, content, url, userId?)  // 同上
 ```
 
----
+### 8.5 代理管理器 (`services/proxy-manager.ts`)
+
+管理 mihomo 代理进程的单例服务，每个唯一订阅 URL 对应一个 mihomo 实例。
+
+```typescript
+class ProxyManager {
+  private instances: Map<string, ProxyInstance>   // hash → { hash, url, port, process, userIds }
+  private usedPorts: Set<number>                  // 端口占用集合 (15733~15833)
+
+  async init(): Promise<void>                     // 启动时扫描 DB 恢复所有代理实例
+  async register(userId: string, url: string): Promise<void>  // 注册订阅，启动 mihomo
+  unregister(userId: string): void                // 注销订阅，停止空闲 mihomo
+  shutdown(): void                                // 服务器关闭时清理所有实例
+  getProxyUrl(userId: string): string | null      // 获取用户的代理地址
+}
+```
+
+**mihomo 配置模板：**
+```yaml
+mixed-port: {port}
+allow-lan: false
+mode: rule
+log-level: warning
+ipv6: false
+
+proxy-providers:
+  provider1:
+    type: http
+    url: "{subscriptionUrl}"
+    interval: 86400
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    use:
+      - provider1
+
+rules:
+  - MATCH,Proxy
+```
+
+**mihomo 配置要点：**
+- 使用 `type: select`（而非 url-test）避免启动时节点不可用导致代理延迟
+- 去掉 GEOIP 规则（需要 MMDB 数据库，国内服务器可能无法下载）
+- proxy-provider 的 `interval: 86400`（24 小时自动更新节点列表）
+
+**关键行为：**
+- 进程崩溃自动重启（2 秒延迟）
+- 同一订阅 URL 共享同一 mihomo 实例（MD5 哈希取前 8 位标识）
+- 服务器重启自动恢复（`init()` 扫描所有用户的 YOUTUBE_SUBSCRIPTION_URL）
+- 端口范围 15733~15833（上限 100 个实例）
 
 ## 9. 数据库迁移策略
 

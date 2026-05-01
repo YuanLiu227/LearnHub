@@ -26,7 +26,9 @@
 | `YOUTUBE_MIN_VIEWS` | YouTube 关键词搜索最低播放量阈值 | 10000 |
 | `YOUTUBE_MIN_LIKES` | YouTube 关键词搜索最低点赞数阈值 | 500 |
 
-**注意**：API 密钥（`DEEPSEEK_API_KEY`、`YOUTUBE_API_KEY`）和代理地址（`YOUTUBE_PROXY_URL`）不再需要全局环境变量。每个用户可在前端设置页自行配置，配置值加密存储于 `user_config` 表。开发者可在 `.env` 中保留这些变量用于本地开发和测试。
+**注意**：API 密钥（`DEEPSEEK_API_KEY`、`YOUTUBE_API_KEY`）、代理地址（`YOUTUBE_PROXY_URL`）和订阅链接（`YOUTUBE_SUBSCRIPTION_URL`）不再需要全局环境变量。每个用户可在前端设置页自行配置，配置值加密存储于 `user_config` 表。开发者可在 `.env` 中保留这些变量用于本地开发和测试。
+
+**代理自动配置**：`YOUTUBE_PROXY_URL` 不再需要用户手动输入。用户配置 `YOUTUBE_SUBSCRIPTION_URL`（机场订阅链接）后，服务器自动启动 mihomo 实例并写入 `YOUTUBE_PROXY_URL`，整个过程对用户透明。
 
 ### 1.4 SMTP 邮件配置（同时决定管理员账号）
 
@@ -199,7 +201,8 @@ CREATE TABLE user_config (
 |-----|------|----------|----------|
 | `DEEPSEEK_API_KEY` | API 密钥 | ✅ AES-256-GCM | 无全局默认，用户必须配置才能使用 AI 功能 |
 | `YOUTUBE_API_KEY` | API 密钥 | ✅ AES-256-GCM | 无全局默认，用户必须配置才能使用 YouTube 搜索 |
-| `YOUTUBE_PROXY_URL` | 代理地址 | ✅ AES-256-GCM | 无全局默认，国内环境用户需自行配置 |
+| `YOUTUBE_PROXY_URL` | 代理地址 | ✅ AES-256-GCM | 系统自动配置（用户配置订阅链接后自动生成），无需手动设置 |
+| `YOUTUBE_SUBSCRIPTION_URL` | 订阅链接 | ✅ AES-256-GCM | 无全局默认，用户输入机场订阅链接后服务器自动启动代理 |
 | `ENABLE_BILIBILI` | 开关 | ❌ | 默认为 `'true'` |
 | `ENABLE_YOUTUBE` | 开关 | ❌ | 默认为 `'true'` |
 | `ENABLE_CODENAV` | 开关 | ❌ | 默认为 `'true'` |
@@ -307,25 +310,80 @@ try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE creator_id 
 **API 密钥区：**
 - DeepSeek API 密钥：密码输入框，显示/隐藏切换，保存/清除按钮
 - YouTube API 密钥：同上
-- YouTube 代理地址：同上
+- 机场订阅链接：密码输入框，配置后系统自动设置 YouTube 代理
+- 提示文字："配置订阅链接后自动设置 YouTube 代理，可访问 YouTube 数据源"
 
 **数据源开关区：**
-- Bilibili：开关 + "Bilibili 视频搜索（无需密钥）" 说明
-- YouTube：开关 + "YouTube 视频搜索" 说明
-- 编程导航：开关 + "编程导航（codefather.cn）" 说明
-- 鱼皮AI导航：开关 + "鱼皮AI导航（ai.codefather.cn）" 说明
+- Bilibili：开关 + "Bilibili 视频搜索（免费，无需密钥）" 说明
+- YouTube：开关 + "YouTube 视频搜索（需要配置 API 密钥）" 说明
+- 编程导航：开关 + "编程导航官方教程内容" 说明
+- 鱼皮AI导航：开关 + "鱼皮AI导航官方教程内容" 说明
 
 ---
 
-## 4. 管理后台配置
+## 4. 代理管理
 
-### 4.1 访问方式
+### 4.1 代理工作流程
+
+```
+用户输入订阅链接 → 服务器启动 mihomo → 自动写入 YOUTUBE_PROXY_URL → YouTube API 通过代理访问
+```
+
+用户只需在前端设置页输入机场订阅链接，系统自动完成以下流程：
+1. 订阅链接加密存储于 `user_config` 表（AES-256-GCM）
+2. `proxyManager.register()` 分配端口，生成 mihomo 配置，启动 mihomo 进程
+3. 自动写入 `YOUTUBE_PROXY_URL` 到用户配置
+4. YouTube API 调用时自动使用该代理
+
+### 4.2 mihomo 安装
+
+服务器需安装 mihomo（Clash Meta 内核）：
+
+```bash
+# 从 GitHub Release 下载（国内服务器需使用 ghproxy.net 镜像）
+wget -O mihomo.deb https://github.com/MetaCubeX/mihomo/releases/latest/download/mihomo-linux-amd64-compatible.deb
+dpkg -i mihomo.deb
+mihomo --version
+```
+
+### 4.3 配置文件路径
+
+| 路径 | 说明 |
+|------|------|
+| `server/data/proxy/{hash}/config.yaml` | 每个订阅实例的 mihomo 配置 |
+| `server/data/proxy/{hash}/` | 实例运行目录（含缓存） |
+
+### 4.4 SECRET_KEYS 定义
+
+以下配置键在 `setUserConfigValue` 写入时自动加密，在 API 响应中自动掩码：
+
+| key | 加密 | 掩码规则 |
+|-----|------|----------|
+| `DEEPSEEK_API_KEY` | ✅ AES-256-GCM | 前 3 + `****` + 后 4 |
+| `YOUTUBE_API_KEY` | ✅ AES-256-GCM | 前 3 + `****` + 后 4 |
+| `YOUTUBE_PROXY_URL` | ✅ AES-256-GCM | `http://***:***@hostname:port` |
+| `YOUTUBE_SUBSCRIPTION_URL` | ✅ AES-256-GCM | 前 3 + `****` + 后 4 |
+
+### 4.5 端口分配
+
+| 属性 | 值 |
+|------|-----|
+| 起始端口 | 15733 |
+| 结束端口 | 15833 |
+| 最大实例数 | 100 |
+| 分配方式 | 自动寻找最小可用端口，实例销毁时释放回池 |
+
+---
+
+## 5. 管理后台配置
+
+### 5.1 访问方式
 
 | 访问地址 | 说明 |
 |----------|------|
 | `http://localhost:3001/admin` | 管理后台（独立 HTML 页面，无需构建） |
 
-### 4.2 管理员账号
+### 5.2 管理员账号
 
 管理员账号由 SMTP 配置决定：
 
@@ -334,13 +392,13 @@ try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE creator_id 
 3. 系统自动分配 `role = 'admin'`
 4. 使用该账号登录管理后台即可
 
-### 4.3 系统设置
+### 5.3 系统设置
 
 | 配置项 | 说明 | 管理后台操作 |
 |--------|------|-------------|
 | `registration_enabled` | 允许新用户注册 | 设置页开关按钮 |
 
-### 4.4 API 批量操作
+### 5.4 API 批量操作
 
 `POST /api/dashboard/resources/batch-delete`
 
@@ -360,7 +418,7 @@ try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE creator_id 
 
 ---
 
-## 5. 定时任务
+## 6. 定时任务
 
 | 任务 | 时间 | 说明 |
 |------|------|------|
@@ -369,9 +427,9 @@ try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE creator_id 
 
 ---
 
-## 6. 前端配置
+## 7. 前端配置
 
-### 6.1 Vite 代理
+### 7.1 Vite 代理
 
 ```typescript
 // vite.config.ts
@@ -382,7 +440,7 @@ server: {
 }
 ```
 
-### 6.2 API 基础路径
+### 7.2 API 基础路径
 
 ```typescript
 // client/src/services/api.ts
@@ -391,7 +449,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 ---
 
-## 7. 错误处理
+## 8. 错误处理
 
 ### 7.1 标准错误响应
 
@@ -426,7 +484,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 ---
 
-## 8. 健康检查
+## 9. 健康检查
 
 `GET /api/health` 返回：
 
