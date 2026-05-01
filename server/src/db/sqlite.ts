@@ -94,6 +94,13 @@ db.exec(`
     created_at INTEGER NOT NULL,
     used INTEGER NOT NULL DEFAULT 0
   );
+
+  CREATE TABLE IF NOT EXISTS user_config (
+    key TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (key, user_id)
+  );
 `);
 
 // 迁移已有数据库

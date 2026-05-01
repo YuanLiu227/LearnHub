@@ -79,3 +79,10 @@ export interface MonitorProgress {
   total?: number;
   error?: string;
 }
+
+export type UserConfigValue = {
+  value: string | null;
+  source: 'user' | 'env' | 'none' | 'default';
+};
+
+export type UserConfigMap = Record<string, UserConfigValue>;

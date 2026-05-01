@@ -83,7 +83,7 @@ router.post('/submit', authRequired, async (req: AuthRequest, res) => {
         return res.status(400).json({ error: '无效的 YouTube 视频链接' });
       }
 
-      const statsMap = await getYouTubeVideoStats([videoId]);
+      const statsMap = await getYouTubeVideoStats([videoId], userId);
       const stats = statsMap.get(videoId);
       if (!stats) {
         return res.status(502).json({ error: '获取 YouTube 视频信息失败，请检查链接是否正确' });

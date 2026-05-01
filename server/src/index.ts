@@ -23,11 +23,17 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // 中间件
+const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || '';
+const corsOrigins = [
+  'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175',
+  'http://127.0.0.1:5173', 'http://127.0.0.1:5174', 'http://127.0.0.1:5175',
+  'http://101.133.153.94',
+  'http://101.133.153.94:3001',
+];
+if (PRODUCTION_DOMAIN) corsOrigins.push(PRODUCTION_DOMAIN);
+
 app.use(cors({
-  origin: [
-    'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175',
-    'http://127.0.0.1:5173', 'http://127.0.0.1:5174', 'http://127.0.0.1:5175',
-  ],
+  origin: corsOrigins,
   credentials: true,
 }));
 app.use(express.json());

@@ -6,22 +6,29 @@
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `DEEPSEEK_API_KEY` | DeepSeek API 密钥，用于 AI 摘要和质量评估 | — |
 | `JWT_SECRET` | JWT 签名密钥，用于用户认证令牌签发 | — |
 
-### 1.2 数据源配置
+### 1.2 加密配置
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `YOUTUBE_API_KEY` | YouTube Data API v3 密钥，用于搜索和视频信息获取 | — |
-| `YOUTUBE_PROXY_URL` | YouTube API 代理地址（国内环境需要配置） | — |
+| `CONFIG_ENCRYPTION_KEY` | 用户 API 密钥加密密钥（AES-256-GCM），**生产环境务必自定义** | `learnhub-default-key-not-for-prod!!` |
+
+> `CONFIG_ENCRYPTION_KEY` 用于派生 AES-256 加密密钥（通过 SHA-256 哈希）。生产环境应设置为足够强度的随机字符串。默认密钥仅用于开发，生产环境必须修改。
+
+### 1.3 数据源搜索质量阈值
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
 | `BILIBILI_MIN_VIEWS` | Bilibili 关键词搜索最低播放量阈值 | 5000 |
 | `BILIBILI_MIN_LIKES` | Bilibili 关键词搜索最低点赞数阈值 | 200 |
 | `BILIBILI_MIN_FAVORITES` | Bilibili 关键词搜索最低收藏数阈值 | 100 |
 | `YOUTUBE_MIN_VIEWS` | YouTube 关键词搜索最低播放量阈值 | 10000 |
 | `YOUTUBE_MIN_LIKES` | YouTube 关键词搜索最低点赞数阈值 | 500 |
 
-### 1.3 SMTP 邮件配置（同时决定管理员账号）
+**注意**：API 密钥（`DEEPSEEK_API_KEY`、`YOUTUBE_API_KEY`）和代理地址（`YOUTUBE_PROXY_URL`）不再需要全局环境变量。每个用户可在前端设置页自行配置，配置值加密存储于 `user_config` 表。开发者可在 `.env` 中保留这些变量用于本地开发和测试。
+
+### 1.4 SMTP 邮件配置（同时决定管理员账号）
 
 用于发送注册验证码。如不配置，开发模式会在控制台输出验证码。
 
@@ -45,19 +52,11 @@
 | Brevo | `smtp-relay.brevo.com` | 587 | SMTP API Key |
 | Resend | `smtp.resend.com` | 465 | API Key |
 
-### 1.4 MCP 配置
+### 1.5 MCP 配置
 
 | 变量 | 说明 |
 |------|------|
-| `FIRECRAWL_API_KEY` | Firecrawl API 密钥，用于网页智能抓取与搜索 |
 | `UPSTASH_CONTEXT7_API_KEY` | Context7 API 密钥，用于获取最新技术文档 |
-
-### 1.5 数据源开关
-
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `ENABLE_CODENAV` | 启用编程导航数据源 | `true` |
-| `ENABLE_AI_CODEFATHER` | 启用鱼皮AI导航数据源 | `true` |
 
 ### 1.6 服务器配置
 
@@ -183,17 +182,44 @@ CREATE TABLE verification_codes (
 );
 ```
 
-#### config（配置表）
+#### user_config（用户配置表）
+
+```sql
+CREATE TABLE user_config (
+  key TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  value TEXT NOT NULL,
+  PRIMARY KEY (key, user_id)
+);
+```
+
+**支持的配置项：**
+
+| key | 类型 | 加密存储 | 默认行为 |
+|-----|------|----------|----------|
+| `DEEPSEEK_API_KEY` | API 密钥 | ✅ AES-256-GCM | 无全局默认，用户必须配置才能使用 AI 功能 |
+| `YOUTUBE_API_KEY` | API 密钥 | ✅ AES-256-GCM | 无全局默认，用户必须配置才能使用 YouTube 搜索 |
+| `YOUTUBE_PROXY_URL` | 代理地址 | ✅ AES-256-GCM | 无全局默认，国内环境用户需自行配置 |
+| `ENABLE_BILIBILI` | 开关 | ❌ | 默认为 `'true'` |
+| `ENABLE_YOUTUBE` | 开关 | ❌ | 默认为 `'true'` |
+| `ENABLE_CODENAV` | 开关 | ❌ | 默认为 `'true'` |
+| `ENABLE_AI_CODEFATHER` | 开关 | ❌ | 默认为 `'true'` |
+
+**加密存储格式**（AES-256-GCM）：
+```
+hexIV(32字符):hexAuthTag(32字符):hexCiphertext(可变)
+```
+
+#### config（系统配置表）
 
 ```sql
 CREATE TABLE config (
   key TEXT PRIMARY KEY,
-  value TEXT NOT NULL,
-  user_id TEXT
+  value TEXT NOT NULL
 );
 ```
 
-**全局配置键：**
+**系统配置键：**
 
 | key | value | 说明 |
 |-----|-------|------|
@@ -238,21 +264,68 @@ try { db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`);
 try { db.exec(`ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); } catch (e) {}
 // resource_type 迁移
 try { db.exec(`ALTER TABLE news_items ADD COLUMN resource_type TEXT DEFAULT 'keyword'`); } catch (e) {}
-try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE creator_id IS NOT NULL`); } catch (e) {}
-try { db.exec(`UPDATE news_items SET resource_type = 'keyword' WHERE keyword_id IS NOT NULL`); } catch (e) {}
+try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE creator_id IS NOT NULL AND resource_type IS NULL`); } catch (e) {}
 ```
 
 ---
 
-## 3. 管理后台配置
+## 3. 用户配置系统
 
-### 3.1 访问方式
+### 3.1 配置服务函数
+
+所有配置读取/写入集中管理在 `server/src/services/config.ts`：
+
+| 函数 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `getUserConfigValue` | `(key, userId?)` | `string \| null` | 查询用户配置 → 回退 env → 默认值 |
+| `setUserConfigValue` | `(key, value, userId)` | `void` | 写入用户配置（密钥自动加密） |
+| `deleteUserConfigValue` | `(key, userId)` | `void` | 删除用户配置（恢复默认） |
+| `getEffectiveConfig` | `(userId)` | `Record<string, {value, source}>` | 获取全部配置及来源信息 |
+
+### 3.2 配置读取优先级
+
+```
+1. user_config 表（用户设置）        ← 优先级最高
+2. process.env 环境变量               ← 回退（向后兼容）
+3. ENABLE_* 键 → 默认 'true'         ← 数据源开关默认开启
+4. 其他键 → null                      ← 未配置
+```
+
+### 3.3 配置来源指示
+
+| source | 含义 | 前端显示 |
+|--------|------|----------|
+| `'user'` | 用户自己在设置页配置 | "使用个人密钥" |
+| `'env'` | 继承自环境变量 | "使用服务器默认值" |
+| `'none'` | 未配置 | "未配置" |
+| `'default'` | 系统默认开启（仅开关） | "默认开启" |
+
+### 3.4 前端设置页面
+
+路径：`client/src/components/settings/SettingsView.tsx`
+
+**API 密钥区：**
+- DeepSeek API 密钥：密码输入框，显示/隐藏切换，保存/清除按钮
+- YouTube API 密钥：同上
+- YouTube 代理地址：同上
+
+**数据源开关区：**
+- Bilibili：开关 + "Bilibili 视频搜索（无需密钥）" 说明
+- YouTube：开关 + "YouTube 视频搜索" 说明
+- 编程导航：开关 + "编程导航（codefather.cn）" 说明
+- 鱼皮AI导航：开关 + "鱼皮AI导航（ai.codefather.cn）" 说明
+
+---
+
+## 4. 管理后台配置
+
+### 4.1 访问方式
 
 | 访问地址 | 说明 |
 |----------|------|
 | `http://localhost:3001/admin` | 管理后台（独立 HTML 页面，无需构建） |
 
-### 3.2 管理员账号
+### 4.2 管理员账号
 
 管理员账号由 SMTP 配置决定：
 
@@ -261,13 +334,13 @@ try { db.exec(`UPDATE news_items SET resource_type = 'keyword' WHERE keyword_id 
 3. 系统自动分配 `role = 'admin'`
 4. 使用该账号登录管理后台即可
 
-### 3.3 系统设置
+### 4.3 系统设置
 
 | 配置项 | 说明 | 管理后台操作 |
 |--------|------|-------------|
 | `registration_enabled` | 允许新用户注册 | 设置页开关按钮 |
 
-### 3.4 API 批量操作
+### 4.4 API 批量操作
 
 `POST /api/dashboard/resources/batch-delete`
 
@@ -287,7 +360,7 @@ try { db.exec(`UPDATE news_items SET resource_type = 'keyword' WHERE keyword_id 
 
 ---
 
-## 4. 定时任务
+## 5. 定时任务
 
 | 任务 | 时间 | 说明 |
 |------|------|------|
@@ -296,9 +369,9 @@ try { db.exec(`UPDATE news_items SET resource_type = 'keyword' WHERE keyword_id 
 
 ---
 
-## 5. 前端配置
+## 6. 前端配置
 
-### 5.1 Vite 代理
+### 6.1 Vite 代理
 
 ```typescript
 // vite.config.ts
@@ -309,7 +382,7 @@ server: {
 }
 ```
 
-### 5.2 API 基础路径
+### 6.2 API 基础路径
 
 ```typescript
 // client/src/services/api.ts
@@ -318,9 +391,9 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 ---
 
-## 6. 错误处理
+## 7. 错误处理
 
-### 6.1 标准错误响应
+### 7.1 标准错误响应
 
 ```json
 {
@@ -328,7 +401,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 }
 ```
 
-### 6.2 HTTP 状态码
+### 7.2 HTTP 状态码
 
 | 状态码 | 含义 | 处理方式 |
 |--------|------|----------|
@@ -339,7 +412,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 | 404 | 资源不存在 | 显示 404 提示 |
 | 500 | 服务器错误 | 显示错误提示，控制台打印错误 |
 
-### 6.3 管理后台特殊状态码
+### 7.3 管理后台特殊状态码
 
 | 状态码 | 场景 | 响应 |
 |--------|------|------|
@@ -353,7 +426,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 ---
 
-## 7. 健康检查
+## 8. 健康检查
 
 `GET /api/health` 返回：
 

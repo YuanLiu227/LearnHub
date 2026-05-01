@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { ChatMessage, VeracityResult } from '../types/index.js';
 import { getContext7Docs } from './context7-mcp.js';
+import { getUserConfigValue } from './config.js';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
@@ -14,9 +15,10 @@ interface AIResponse {
 
 export async function chat(
   messages: ChatMessage[],
-  model: string = 'deepseek-chat'
+  model: string = 'deepseek-chat',
+  userId?: string
 ): Promise<string> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const apiKey = getUserConfigValue('DEEPSEEK_API_KEY', userId);
 
   if (!apiKey) {
     throw new Error('DEEPSEEK_API_KEY is not configured');
@@ -202,10 +204,9 @@ score: 0.0-1.0 where 1.0 is highest quality, substantive content`;
 export async function checkVeracity(
   title: string,
   content: string,
-  url: string
+  url: string,
+  userId?: string
 ): Promise<VeracityResult> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-
   const systemPrompt = `You are a fact-checker AI. Analyze the given content and determine if it appears to be real news or potentially fake/misleading content.
 
 IMPORTANT: You MUST respond with ONLY valid JSON, no other text. Format:

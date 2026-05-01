@@ -9,6 +9,7 @@ import { collectYouTubeVideos } from '../services/youtube-api.js';
 import { collectCodefatherArticles } from '../services/codefather-api.js';
 import { collectAiCodefatherArticles } from '../services/ai-codefather-api.js';
 import { authRequired, type AuthRequest } from '../middleware/auth.js';
+import { getUserConfigValue } from '../services/config.js';
 
 interface DbKeywordRow {
   id: string;
@@ -116,45 +117,52 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
         const minFavorites = parseInt(process.env.BILIBILI_MIN_FAVORITES || '100', 10);
 
         // 1. 从 Bilibili 搜索
-        const bilibiliResults = await searchBilibiliVideos(keyword.term, 10);
-        for (const bResult of bilibiliResults) {
-          const bvid = extractBVID(bResult.url);
-          if (!bvid) continue;
-          const stats = await getBilibiliVideoStats(bvid);
-          if (!stats) continue;
-          if (stats.view < minViews || stats.like < minLikes || stats.favorite < minFavorites) {
-            console.log(`[Monitor] Bilibili "${bvid}" filtered: view=${stats.view} like=${stats.like} fav=${stats.favorite}`);
-            continue;
+        const enableBilibili = getUserConfigValue('ENABLE_BILIBILI', userId) !== 'false';
+        let bilibiliResults: any[] = [];
+        if (enableBilibili) {
+          bilibiliResults = await searchBilibiliVideos(keyword.term, 10);
+          for (const bResult of bilibiliResults) {
+            const bvid = extractBVID(bResult.url);
+            if (!bvid) continue;
+            const stats = await getBilibiliVideoStats(bvid);
+            if (!stats) continue;
+            if (stats.view < minViews || stats.like < minLikes || stats.favorite < minFavorites) {
+              console.log(`[Monitor] Bilibili "${bvid}" filtered: view=${stats.view} like=${stats.like} fav=${stats.favorite}`);
+              continue;
+            }
+            const heatScore = Math.min(100, Math.round(stats.view / 1000));
+            allItems.push({
+              title: stats.title.slice(0, 200),
+              url: bResult.url,
+              source: 'bilibili',
+              sourceName: 'Bilibili',
+              author: stats.author,
+              heat: heatScore,
+              publishedAt: Date.now(),
+              summary: `${stats.title} · 👁️${stats.view} 👍${stats.like} ⭐${stats.favorite}`,
+              _sourceType: 'bilibili',
+            });
           }
-          const heatScore = Math.min(100, Math.round(stats.view / 1000));
-          allItems.push({
-            title: stats.title.slice(0, 200),
-            url: bResult.url,
-            source: 'bilibili',
-            sourceName: 'Bilibili',
-            author: stats.author,
-            heat: heatScore,
-            publishedAt: Date.now(),
-            summary: `${stats.title} · 👁️${stats.view} 👍${stats.like} ⭐${stats.favorite}`,
-            _sourceType: 'bilibili',
-          });
+          console.log(`[Monitor] Bilibili found ${bilibiliResults.length} results for "${keyword.term}"`);
         }
-        console.log(`[Monitor] Bilibili found ${bilibiliResults.length} results for "${keyword.term}"`);
 
         // 2. 从 YouTube 搜索
-        const ytMinViews = parseInt(process.env.YOUTUBE_MIN_VIEWS || '10000', 10);
-        const ytMinLikes = parseInt(process.env.YOUTUBE_MIN_LIKES || '500', 10);
+        const enableYoutube = getUserConfigValue('ENABLE_YOUTUBE', userId) !== 'false';
         let ytResults: any[] = [];
-        try {
-          ytResults = await collectYouTubeVideos(keyword.term, 10, ytMinViews, ytMinLikes);
-          allItems.push(...ytResults);
-          console.log(`[Monitor] YouTube found ${ytResults.length} results for "${keyword.term}"`);
-        } catch (ytErr: any) {
-          console.error(`[Monitor] YouTube error for "${keyword.term}":`, ytErr.message);
+        if (enableYoutube) {
+          const ytMinViews = parseInt(process.env.YOUTUBE_MIN_VIEWS || '10000', 10);
+          const ytMinLikes = parseInt(process.env.YOUTUBE_MIN_LIKES || '500', 10);
+          try {
+            ytResults = await collectYouTubeVideos(keyword.term, 10, ytMinViews, ytMinLikes, userId);
+            allItems.push(...ytResults);
+            console.log(`[Monitor] YouTube found ${ytResults.length} results for "${keyword.term}"`);
+          } catch (ytErr: any) {
+            console.error(`[Monitor] YouTube error for "${keyword.term}":`, ytErr.message);
+          }
         }
 
         // 3. 从编程导航搜索（仅保留官方内容）
-        const enableCodenav = process.env.ENABLE_CODENAV === 'true' || process.env.ENABLE_CODENAV === '1';
+        const enableCodenav = getUserConfigValue('ENABLE_CODENAV', userId) !== 'false';
         if (enableCodenav) {
           try {
             const cfResults = await collectCodefatherArticles(
@@ -168,7 +176,7 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
         }
 
         // 4. 从鱼皮AI导航搜索（全部官方教程，不过滤）
-        const enableAiCodefather = process.env.ENABLE_AI_CODEFATHER === 'true' || process.env.ENABLE_AI_CODEFATHER === '1';
+        const enableAiCodefather = getUserConfigValue('ENABLE_AI_CODEFATHER', userId) !== 'false';
         if (enableAiCodefather) {
           try {
             const aiCfResults = await collectAiCodefatherArticles(keyword.term, 10);

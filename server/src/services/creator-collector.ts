@@ -2,6 +2,7 @@ import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { getBilibiliVideoStats, extractBVID } from './bilibili-api.js';
 import { getYouTubeVideoStats } from './youtube-api.js';
+import { getUserConfigValue } from './config.js';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 const REFERER = 'https://www.bilibili.com/';
@@ -18,8 +19,8 @@ function biliHeaders() {
   };
 }
 
-function getProxyAgent(): HttpsProxyAgent<string> | undefined {
-  const proxyUrl = process.env.YOUTUBE_PROXY_URL || process.env.https_proxy || process.env.HTTPS_PROXY;
+function getProxyAgent(userId?: string): HttpsProxyAgent<string> | undefined {
+  const proxyUrl = getUserConfigValue('YOUTUBE_PROXY_URL', userId);
   if (proxyUrl) {
     return new HttpsProxyAgent(proxyUrl);
   }
@@ -184,8 +185,8 @@ async function processBilibiliVideos(vlist: any[], mid: string, limit: number): 
 /**
  * 通过 YouTube Search API 搜索频道
  */
-export async function searchYouTubeChannel(query: string): Promise<{ channelId: string; title: string; avatar: string } | null> {
-  const apiKey = process.env.YOUTUBE_API_KEY;
+export async function searchYouTubeChannel(query: string, userId?: string): Promise<{ channelId: string; title: string; avatar: string } | null> {
+  const apiKey = getUserConfigValue('YOUTUBE_API_KEY', userId);
   if (!apiKey) {
     console.log('[Creator] YOUTUBE_API_KEY not configured');
     return null;
@@ -196,7 +197,7 @@ export async function searchYouTubeChannel(query: string): Promise<{ channelId: 
       params: { part: 'snippet', type: 'channel', q: query, maxResults: 1, key: apiKey },
       timeout: 15000,
     };
-    const agent = getProxyAgent();
+    const agent = getProxyAgent(userId);
     if (agent) config.httpsAgent = agent;
 
     const resp = await axios.get('https://www.googleapis.com/youtube/v3/search', config);
@@ -219,8 +220,8 @@ export async function searchYouTubeChannel(query: string): Promise<{ channelId: 
 /**
  * 获取 YouTube 频道的最新视频
  */
-export async function getYouTubeChannelVideos(channelId: string, limit: number = 10): Promise<any[]> {
-  const apiKey = process.env.YOUTUBE_API_KEY;
+export async function getYouTubeChannelVideos(channelId: string, limit: number = 10, userId?: string): Promise<any[]> {
+  const apiKey = getUserConfigValue('YOUTUBE_API_KEY', userId);
   if (!apiKey) return [];
 
   try {
@@ -235,7 +236,7 @@ export async function getYouTubeChannelVideos(channelId: string, limit: number =
       },
       timeout: 15000,
     };
-    const agent = getProxyAgent();
+    const agent = getProxyAgent(userId);
     if (agent) searchConfig.httpsAgent = agent;
 
     const searchResp = await axios.get('https://www.googleapis.com/youtube/v3/search', searchConfig);
@@ -284,7 +285,7 @@ export async function getYouTubeChannelVideos(channelId: string, limit: number =
  * 从所有关注的博主收集内容
  * 返回按 creatorId -> items[] 的 Map
  */
-export async function collectCreatorContent(creators: any[]): Promise<Map<string, any[]>> {
+export async function collectCreatorContent(creators: any[], userId?: string): Promise<Map<string, any[]>> {
   const result = new Map<string, any[]>();
 
   for (const creator of creators) {
@@ -299,7 +300,7 @@ export async function collectCreatorContent(creators: any[]): Promise<Map<string
     if (cPlatform === 'bilibili') {
       items = await getBilibiliUserVideos(cChannelId, 20, cName);
     } else if (cPlatform === 'youtube') {
-      items = await getYouTubeChannelVideos(cChannelId, 10);
+      items = await getYouTubeChannelVideos(cChannelId, 10, userId);
     }
 
     // 给每个条目标记 creator 信息

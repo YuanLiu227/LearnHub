@@ -14,6 +14,10 @@
 │  │ │ 博主   │ │ │  │博主  │ │ ┌───────────┐       │ 系统设置      │     │
 │  │ │ 视频   │ │ │  │视频  │ │ │ 知识搜索   │       └───────────────┘     │
 │  │ └───────┘ │ │  └──────┘ │ └───────────┘                               │
+│  │ ┌───────┐ │ │  ┌──────┐ │ ┌───────────┐                               │
+│  │ │ 设置   │ │ │  │添加  │ │ │ 设置页    │                               │
+│  │ └───────┘ │ │  │视频  │ │ │ (Settings) │                               │
+│  │           │ │  └──────┘ │ └───────────┘                               │
 │  └───────────┘ └───────────┘                                             │
 │                   Zustand 5 + Axios                                       │
 └──────────────────────────┬───────────────────────────────────────────────┘
@@ -35,10 +39,10 @@
 │  │  │ 评分系统  │ │  DeepSeek AI │ │ Captcha      │               │       │
 │  │  │ 去重算法  │ │  服务        │ │ 邮箱验证码    │               │       │
 │  │  └──────────┘ └──────────────┘ └──────────────┘               │       │
-│  │  ┌──────────┐ ┌──────────────┐                               │       │
-│  │  │ context7 │ │  Firecrawl   │                               │       │
-│  │  │ MCP      │ │  MCP         │                               │       │
-│  │  └──────────┘ └──────────────┘                               │       │
+│  │  ┌──────────┐ ┌──────────────┐ ┌──────────────┐               │       │
+│  │  │ 配置服务  │ │  加密服务    │ │  Context7    │               │       │
+│  │  │ config   │ │  AES-256-GCM │ │  MCP         │               │       │
+│  │  └──────────┘ └──────────────┘ └──────────────┘               │       │
 │  └───────────────────────────────────────────────────────────────┘       │
 │                           │                                              │
 │                      ┌────┴────┐                                         │
@@ -64,6 +68,7 @@
 | AI | DeepSeek V4 Flash API | latest |
 | 邮件 | nodemailer | latest |
 | HTTP 客户端 | axios | latest |
+| 加密 | Node.js crypto (AES-256-GCM) | 内置 |
 | 管理后台 | 独立 HTML/CSS/JS | 无构建依赖 |
 
 ---
@@ -161,20 +166,45 @@
 | `expires_at` | INTEGER | 过期时间 |
 | `used` | INTEGER | 是否已使用（0/1） |
 
-### 2.6 config（配置表）
+### 2.6 user_config（用户配置表）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| `key` | TEXT | 配置键（复合主键） |
+| `user_id` | TEXT | 用户 ID（复合主键） |
+| `value` | TEXT | 配置值（API 密钥加密存储） |
+
+**支持的用户配置项：**
+
+| key | 类型 | 说明 | 加密存储 |
+|-----|------|------|----------|
+| `DEEPSEEK_API_KEY` | API 密钥 | DeepSeek API 密钥，用于 AI 服务 | ✅ AES-256-GCM |
+| `YOUTUBE_API_KEY` | API 密钥 | YouTube Data API v3 密钥 | ✅ AES-256-GCM |
+| `YOUTUBE_PROXY_URL` | 代理地址 | YouTube API 代理地址（国内需要） | ✅ AES-256-GCM |
+| `ENABLE_BILIBILI` | 开关 | Bilibili 数据源开关 | ❌ |
+| `ENABLE_YOUTUBE` | 开关 | YouTube 数据源开关 | ❌ |
+| `ENABLE_CODENAV` | 开关 | 编程导航数据源开关 | ❌ |
+| `ENABLE_AI_CODEFATHER` | 开关 | 鱼皮AI导航数据源开关 | ❌ |
+
+**配置读取优先级（由 `getUserConfigValue` 实现）：**
+1. `user_config` 表（有 userId 时查询，API 密钥自动解密）
+2. `process.env` 环境变量（回退）
+3. 数据源开关默认返回 `'true'`
+4. 其他键返回 `null`
+
+### 2.7 config（系统配置表）
 
 | 列名 | 类型 | 说明 |
 |------|------|------|
 | `key` | TEXT | 配置键 |
 | `value` | TEXT | 配置值 |
-| `user_id` | TEXT (nullable) | 用户 ID（null 为全局配置） |
 
 **全局配置键：**
 | key | value | 说明 |
 |-----|-------|------|
 | `registration_enabled` | `'true'` / `'false'` | 是否允许新用户注册 |
 
-### 2.7 hot_topics（热点话题表）
+### 2.8 hot_topics（热点话题表）
 
 | 列名 | 类型 | 说明 |
 |------|------|------|
@@ -238,13 +268,12 @@
 | GET | `/` | `?page=&pageSize=` | `{ items, total }` | 获取用户视频资源列表 |
 
 **POST `/api/videos/submit` 处理流程：**
-
 1. 根据 `platform` 提取视频 ID
    - Bilibili：调用 `extractBVID(url)` 提取 BVID → 转为 `avid`
    - YouTube：正则 `/(?:youtube\.com\/watch\?v=\|youtu\.be\/\|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/`
-2. 调用对应 API 获取视频信息
+2. 调用对应 API 获取视频信息（传递 userId 以使用用户配置的密钥）
    - Bilibili：`getBilibiliVideoStats(bvid)` → 标题、作者、播放量、发布时间、封面
-   - YouTube：`getYouTubeVideoStats(videoId)` → 标题、频道名、播放量、发布时间
+   - YouTube：`getYouTubeVideoStats([videoId], userId)` → 标题、频道名、播放量、发布时间
 3. 去重检查：`SELECT id FROM news_items WHERE url = ? AND user_id = ?`
 4. 构造 `news_item`：
    - `resource_type = 'direct_video'`
@@ -274,13 +303,40 @@
 | POST | `/resources/batch-delete` | `{ type: 'keywords' \| 'creators' \| 'direct_video' }` | 按类型批量清空 |
 | POST | `/resources/batch-delete-by-ids` | `{ ids }` | 按 ID 批量删除 |
 
-**GET `/api/dashboard/hotspots` 筛选逻辑：**
-- `?source=youtube`：仅筛选某来源
-- `?resourceType=direct_video`：仅筛选视频资源
-- `?resourceType=keyword`：仅筛选关键词资源
-- 不传则返回所有类型
+### 3.7 用户配置模块 (`/api/config`)
 
-### 3.7 管理后台模块 (`/api/admin`)
+| 方法 | 路径 | 请求体 | 响应 | 说明 |
+|------|------|--------|------|------|
+| GET | `/user` | —（需认证） | `{ DEEPSEEK_API_KEY: { value, source }, ... }` | 获取用户所有有效配置及来源 |
+| PUT | `/user` | `{ key, value }`（需认证） | `{ success: true }` | 更新/删除用户配置（value=null 时删除） |
+
+**GET `/api/config/user` 响应格式：**
+```json
+{
+  "DEEPSEEK_API_KEY": { "value": "sk-***9244", "source": "user" },
+  "YOUTUBE_API_KEY": { "value": "AIz***xAYA", "source": "user" },
+  "YOUTUBE_PROXY_URL": { "value": "http://***:***@127.0.0.1:15732", "source": "user" },
+  "ENABLE_BILIBILI": { "value": "true", "source": "default" },
+  "ENABLE_YOUTUBE": { "value": "true", "source": "default" },
+  "ENABLE_CODENAV": { "value": "true", "source": "default" },
+  "ENABLE_AI_CODEFATHER": { "value": "true", "source": "default" }
+}
+```
+
+**source 取值说明：**
+| source | 含义 |
+|--------|------|
+| `'user'` | 用户自己在设置页配置的值 |
+| `'env'` | 继承自环境变量的值（向后兼容） |
+| `'default'` | 系统默认值（仅数据源开关，默认为 true） |
+| `'none'` | 未配置（值为 null） |
+
+**密钥掩码规则：**
+- API 密钥（`DEEPSEEK_API_KEY`、`YOUTUBE_API_KEY`）：显示前 3 位 + `****` + 后 4 位
+- 代理 URL（`YOUTUBE_PROXY_URL`）：提取 URL 密码部分并掩码
+- 仅在 `source === 'user'` 时掩码，env/default/none 来源的密钥不返回
+
+### 3.8 管理后台模块 (`/api/admin`)
 
 所有管理后台路由使用 `adminRequired` 中间件（先 `authRequired` 验证 JWT，再校验 `role === 'admin'`）。
 
@@ -293,19 +349,19 @@
 | GET | `/settings` | — | 获取 `registration_enabled` |
 | PUT | `/settings` | `{ registrationEnabled }` | 更新 `registration_enabled` |
 
-### 3.8 AI 模块 (`/api/ai`)
+### 3.9 AI 模块 (`/api/ai`)
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/chat` | AI 对话 |
-| POST | `/veracity` | 内容真实性校验 |
+| POST | `/chat` | AI 对话（使用用户配置的 DeepSeek API 密钥，userId 可选） |
+| POST | `/veracity` | 内容真实性校验（使用用户配置的 DeepSeek API 密钥，userId 可选） |
 
-### 3.9 系统 (`/api/config`, `/api/health`, etc.)
+### 3.10 系统
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/config` | 获取配置 |
-| PUT | `/api/config` | 更新配置 |
+| GET | `/api/config` | 获取系统配置 |
+| PUT | `/api/config` | 更新系统配置 |
 | GET | `/api/health` | 健康检查 |
 
 ---
@@ -348,7 +404,20 @@ SELECT * FROM news_items WHERE user_id = ?  -- 强制数据隔离
 - SMTP 发送（支持 QQ 邮箱 / 163 / Brevo / Resend）
 - 开发模式（SMTP 未配置）自动返回 devCode
 
-### 4.6 管理后台安全
+### 4.6 API 密钥安全
+
+- **加密存储**：AES-256-GCM 加密存储于 `user_config` 表
+  - 随机 IV（16 字节）+ AuthTag + 密文
+  - 格式：`hexIV:hexAuthTag:hexCiphertext`
+  - 加密密钥派生：`SHA-256(CONFIG_ENCRYPTION_KEY)`
+  - 自动加密：`setUserConfigValue` 对 `SECRET_KEYS` 自动加密
+  - 自动解密：`getUserConfigValue` 对加密值自动解密
+- **响应掩码**：`/api/config/user` 返回时自动掩码密钥字段
+  - API 密钥：`sk-****9244`（前 3 后 4）
+  - 代理 URL：`http://***:***@hostname:port`
+- **存储解密**：纯文本从 `user_config` 读取时检测加密格式并自动解密
+
+### 4.7 管理后台安全
 
 - 管理后台页面不包含敏感前端逻辑，仅通过 API 与后端交互
 - 所有管理 API 受 `adminRequired` 中间件保护
@@ -365,7 +434,7 @@ SELECT * FROM news_items WHERE user_id = ?  -- 强制数据隔离
 用户添加关键词 → 启用 → 触发搜索
          ↓
    Bilibili API (搜索 + 统计, 含阈值)
-   YouTube API (搜索 + 统计, 含阈值)
+   YouTube API (搜索 + 统计, 含阈值, 使用用户密钥/代理)
    编程导航 (文章列表)
    鱼皮AI导航 (课程列表)
          ↓
@@ -382,7 +451,7 @@ SELECT * FROM news_items WHERE user_id = ?  -- 强制数据隔离
 用户关注博主 → 触发收集 (或每日 08:00 自动)
          ↓
    Bilibili: 空间 API → 搜索 API 回退
-   YouTube: Search API + Video Stats
+   YouTube: Search API + Video Stats (使用用户密钥/代理)
          ↓
    时间过滤 (近 7 天, 不设质量阈值)
          ↓
@@ -398,7 +467,7 @@ SELECT * FROM news_items WHERE user_id = ?  -- 强制数据隔离
          ↓
    提取视频 ID (BVID / YouTube Video ID)
          ↓
-   调用平台 API 获取视频信息
+   调用平台 API 获取视频信息 (传递 userId)
          ↓
    去重检查 → 构造 news_item
    (resource_type='direct_video', keyword_id=null, creator_id=null)
@@ -406,7 +475,28 @@ SELECT * FROM news_items WHERE user_id = ?  -- 强制数据隔离
    存入 SQLite → 刷新前端资源列表
 ```
 
-### 5.4 收藏/取消收藏流
+### 5.4 用户配置读写流
+
+```
+用户打开设置页 → GET /api/config/user (authRequired)
+         ↓
+   getEffectiveConfig(userId) 遍历 USER_CONFIG_KEYS
+         ↓
+   查 user_config 表 → 有值 → 解密 → source='user'
+   无值 → process.env → source='env'
+   无值 → ENABLE_* 键 → source='default' (true)
+   均无 → source='none' (null)
+         ↓
+   SECRET_KEYS 且 source='user' → 掩码处理
+         ↓
+   前端展示 → 用户修改 → PUT /api/config/user { key, value }
+         ↓
+   value=null → 删除配置项 (回退默认)
+   SECRET_KEYS → 加密存储
+   其他 → 明文存储
+```
+
+### 5.5 收藏/取消收藏流
 
 ```
 收藏 → PATCH resource/:id { favorited: true }
@@ -456,20 +546,62 @@ SELECT * FROM news_items WHERE user_id = ?  -- 强制数据隔离
 | 数据源 | 文件 | 鉴权 | 用途 |
 |--------|------|------|------|
 | Bilibili | `bilibili-api.ts` | 无需密钥 | 搜索/博主收集/视频提交 |
-| YouTube | `youtube-api.ts` | API Key | 搜索/博主收集/视频提交 |
+| YouTube | `youtube-api.ts` | API Key（用户配置） | 搜索/博主收集/视频提交 |
 | 编程导航 | `codefather-api.ts` | 无需密钥 | 关键词搜索 |
 | 鱼皮AI导航 | `ai-codefather-api.ts` | 无需密钥 | 关键词搜索 |
 
 ---
 
-## 8. 数据库迁移策略
+## 8. 关键服务模块
+
+### 8.1 配置服务 (`services/config.ts`)
+
+```typescript
+USER_CONFIG_KEYS = [
+  'DEEPSEEK_API_KEY', 'YOUTUBE_API_KEY', 'YOUTUBE_PROXY_URL',
+  'ENABLE_BILIBILI', 'ENABLE_YOUTUBE', 'ENABLE_CODENAV', 'ENABLE_AI_CODEFATHER',
+];
+
+getUserConfigValue(key, userId?): string | null     // 读取配置（DB → env → 默认）
+setUserConfigValue(key, value, userId): void         // 写入配置（密钥自动加密）
+deleteUserConfigValue(key, userId): void              // 删除配置（回退为默认）
+getEffectiveConfig(userId): Record<string, {value, source}>  // 获取全部配置及来源
+```
+
+### 8.2 加密服务 (`services/encryption.ts`)
+
+```typescript
+encrypt(text: string): string      // AES-256-GCM 加密，返回 iv:authTag:ciphertext
+decrypt(text: string): string      // 解密，非加密数据原样返回
+isEncrypted(text: string): boolean // 检测 hex:hex:hex 加密格式
+```
+
+### 8.3 YouTube API 密钥/代理获取
+
+```typescript
+// 所有 YouTube 服务函数均接受可选 userId 参数
+getProxyAgent(userId?)          // getUserConfigValue('YOUTUBE_PROXY_URL', userId)
+searchYouTubeVideos(kw, limit, userId?)   // getUserConfigValue('YOUTUBE_API_KEY', userId)
+getYouTubeVideoStats(ids, userId?)        // 同上
+collectYouTubeVideos(kw, ..., userId?)    // 传递 userId 到内部调用
+```
+
+### 8.4 DeepSeek AI 密钥获取
+
+```typescript
+chat(messages, model?, userId?)           // getUserConfigValue('DEEPSEEK_API_KEY', userId)
+checkVeracity(title, content, url, userId?)  // 同上
+```
+
+---
+
+## 9. 数据库迁移策略
 
 使用渐进式迁移模式，所有迁移在 `sqlite.ts` 中顺序执行：
 
 ```typescript
-// 示例：新增列
+// 新增列
 try { db.exec(`ALTER TABLE news_items ADD COLUMN resource_type TEXT DEFAULT 'keyword'`); } catch (e) {}
-// 示例：新增 role/status 列
 try { db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`); } catch (e) {}
 // 回填数据

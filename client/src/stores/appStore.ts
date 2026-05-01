@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import type { Keyword, NewsItem, AppConfig, MonitorProgress, FollowedCreator } from '../types';
+import type { Keyword, NewsItem, AppConfig, MonitorProgress, FollowedCreator, UserConfigMap } from '../types';
 import api, { keywordsApi, monitorApi, dashboardApi, searchApi, configApi, creatorsApi, authApi, videosApi } from '../services/api';
 
-export type TabType = 'dashboard' | 'keywords' | 'overview' | 'search' | 'favorites';
+export type TabType = 'dashboard' | 'keywords' | 'overview' | 'search' | 'favorites' | 'settings';
 
 interface DashboardStats {
   totalResources: number;
@@ -90,6 +90,11 @@ interface AppState {
   // 视频 URL 提交
   isSubmittingVideo: boolean;
   submitVideoUrl: (url: string, platform: string) => Promise<void>;
+
+  // 用户配置
+  userConfig: UserConfigMap;
+  fetchUserConfig: () => Promise<void>;
+  updateUserConfig: (key: string, value: string | null) => Promise<void>;
 
   // 全局状态
   isLoading: boolean;
@@ -595,6 +600,31 @@ export const useAppStore = create<AppState>((set, get) => ({
         isCollectingCreators: false,
         creatorCollectProgress: null,
       });
+    }
+  },
+
+  // 用户配置
+  userConfig: {},
+  fetchUserConfig: async () => {
+    try {
+      const config = await configApi.getUser();
+      set({ userConfig: config as UserConfigMap, error: null });
+    } catch (error: any) {
+      set({ error: error.message || '获取用户配置失败' });
+    }
+  },
+  updateUserConfig: async (key: string, value: string | null) => {
+    try {
+      await configApi.updateUser(key, value);
+      set(state => ({
+        userConfig: {
+          ...state.userConfig,
+          [key]: { value, source: value !== null ? 'user' : 'none' },
+        },
+        error: null,
+      }));
+    } catch (error: any) {
+      set({ error: error.message || '更新用户配置失败' });
     }
   },
 

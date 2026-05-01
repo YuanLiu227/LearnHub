@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { chat } from './deepseek.js';
+import { getUserConfigValue } from './config.js';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
@@ -66,9 +67,9 @@ Example: ["人工智能", "人工智慧", "Artificial Intelligence"]`;
   return [keyword];
 }
 
-/** 获取 YouTube API 的代理配置（优先 YOUTUBE_PROXY_URL，其次 https_proxy） */
-function getProxyAgent(): HttpsProxyAgent<string> | undefined {
-  const proxyUrl = process.env.YOUTUBE_PROXY_URL || process.env.https_proxy || process.env.HTTPS_PROXY;
+/** 获取 YouTube API 的代理配置（仅使用用户配置） */
+function getProxyAgent(userId?: string): HttpsProxyAgent<string> | undefined {
+  const proxyUrl = getUserConfigValue('YOUTUBE_PROXY_URL', userId);
   if (proxyUrl) {
     console.log(`[YouTube] Using proxy: ${proxyUrl.replace(/\/\/.*@/, '//***@')}`);
     return new HttpsProxyAgent(proxyUrl);
@@ -79,8 +80,8 @@ function getProxyAgent(): HttpsProxyAgent<string> | undefined {
 /**
  * 搜索 YouTube 视频
  */
-export async function searchYouTubeVideos(keyword: string, limit: number = 10): Promise<YouTubeSearchItem[]> {
-  const apiKey = process.env.YOUTUBE_API_KEY;
+export async function searchYouTubeVideos(keyword: string, limit: number = 10, userId?: string): Promise<YouTubeSearchItem[]> {
+  const apiKey = getUserConfigValue('YOUTUBE_API_KEY', userId);
   if (!apiKey) {
     console.log('[YouTube] YOUTUBE_API_KEY not configured');
     return [];
@@ -92,7 +93,7 @@ export async function searchYouTubeVideos(keyword: string, limit: number = 10): 
       params: { part: 'snippet', q: keyword, type: 'video', maxResults: limit, key: apiKey },
       timeout: 30000,
     };
-    const agent = getProxyAgent();
+    const agent = getProxyAgent(userId);
     if (agent) config.httpsAgent = agent;
 
     const resp = await axios.get(`${YOUTUBE_API_BASE}/search`, config);
@@ -114,8 +115,8 @@ export async function searchYouTubeVideos(keyword: string, limit: number = 10): 
 /**
  * 批量获取 YouTube 视频统计（一次最多 50 个）
  */
-export async function getYouTubeVideoStats(videoIds: string[]): Promise<Map<string, YouTubeStats>> {
-  const apiKey = process.env.YOUTUBE_API_KEY;
+export async function getYouTubeVideoStats(videoIds: string[], userId?: string): Promise<Map<string, YouTubeStats>> {
+  const apiKey = getUserConfigValue('YOUTUBE_API_KEY', userId);
   if (!apiKey || videoIds.length === 0) return new Map();
 
   const result = new Map<string, YouTubeStats>();
@@ -125,7 +126,7 @@ export async function getYouTubeVideoStats(videoIds: string[]): Promise<Map<stri
       params: { part: 'statistics,snippet', id: videoIds.join(','), key: apiKey },
       timeout: 30000,
     };
-    const agent = getProxyAgent();
+    const agent = getProxyAgent(userId);
     if (agent) config.httpsAgent = agent;
 
     const resp = await axios.get(`${YOUTUBE_API_BASE}/videos`, config);
@@ -157,7 +158,8 @@ export async function collectYouTubeVideos(
   keyword: string,
   limit: number = 10,
   minViews: number = 10000,
-  minLikes: number = 500
+  minLikes: number = 500,
+  userId?: string
 ): Promise<any[]> {
   // 1. 生成多语言关键词
   const keywords = await generateSearchKeywords(keyword);
@@ -170,7 +172,7 @@ export async function collectYouTubeVideos(
   const allItems: YouTubeSearchItem[] = [];
 
   for (const kw of keywords) {
-    const items = await searchYouTubeVideos(kw, limit);
+    const items = await searchYouTubeVideos(kw, limit, userId);
     for (const item of items) {
       if (!seen.has(item.videoId)) {
         seen.add(item.videoId);
@@ -185,7 +187,7 @@ export async function collectYouTubeVideos(
 
   // 3. 获取统计数据
   const videoIds = allItems.map(r => r.videoId);
-  const statsMap = await getYouTubeVideoStats(videoIds);
+  const statsMap = await getYouTubeVideoStats(videoIds, userId);
 
   // 4. 阈值过滤
   const results: any[] = [];

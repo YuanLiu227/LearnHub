@@ -126,6 +126,15 @@ export const configApi = {
   update: async (updates: Partial<AppConfig>): Promise<void> => {
     await api.put('/config', updates);
   },
+
+  getUser: async (): Promise<Record<string, { value: string | null; source: string }>> => {
+    const response = await api.get('/config/user');
+    return response.data;
+  },
+
+  updateUser: async (key: string, value: string | null): Promise<void> => {
+    await api.put('/config/user', { key, value });
+  },
 };
 
 // 仪表盘 API

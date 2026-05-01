@@ -79,7 +79,7 @@ router.post('/', authRequired, async (req: AuthRequest, res) => {
       channelName = user.name;
       avatarUrl = user.avatar;
     } else {
-      const channel = await searchYouTubeChannel(query);
+      const channel = await searchYouTubeChannel(query, req.user!.userId);
       if (!channel) {
         return res.status(404).json({ error: '未找到该 YouTube 频道，请检查名称是否正确' });
       }
@@ -209,7 +209,7 @@ export async function runCreatorCollection(collectId: string = `creator_${Date.n
     const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
     const now = Date.now();
 
-    const creatorContent = await collectCreatorContent(creatorRows);
+    const creatorContent = await collectCreatorContent(creatorRows, userId);
     const allCreatorItems: any[] = [];
 
     for (const [, items] of creatorContent) {

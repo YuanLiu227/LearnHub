@@ -24,6 +24,7 @@ import {
   UserCheck,
   Star,
   CheckCheck,
+  Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -33,6 +34,7 @@ import { KeywordList } from '@/components/keyword-manager/KeywordList';
 import { useAppStore, type TabType } from '@/stores/appStore';
 import { requestNotificationPermission } from '@/hooks/useNotification';
 import { CreatorView } from '@/components/creator-manager/CreatorView';
+import { SettingsView } from '@/components/settings/SettingsView';
 
 function StatsCard({ title, value, icon: Icon, delay = 0 }: {
   title: string;
@@ -1133,6 +1135,7 @@ export function Home() {
     { id: 'keywords', label: '关键词', icon: Hash },
     { id: 'overview', label: '关键词总览', icon: Archive },
     { id: 'search', label: '知识搜索', icon: Search },
+    { id: 'settings', label: '设置', icon: Settings },
   ];
 
   return (
@@ -1333,6 +1336,7 @@ export function Home() {
             {activeTab === 'keywords' && <KeywordsView />}
             {activeTab === 'overview' && <OverviewView />}
             {activeTab === 'search' && <SearchView />}
+            {activeTab === 'settings' && <SettingsView />}
           </motion.div>
         </AnimatePresence>
       </main>
