@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db/sqlite.js';
 import { authRequired, type AuthRequest } from '../middleware/auth.js';
 import { getEffectiveConfig, setUserConfigValue, deleteUserConfigValue } from '../services/config.js';
+import { proxyManager } from '../services/proxy-manager.js';
 
 const router = Router();
 
@@ -54,10 +55,11 @@ router.put('/', (req, res) => {
   }
 });
 
-const SECRET_KEYS = new Set(['DEEPSEEK_API_KEY', 'YOUTUBE_API_KEY', 'YOUTUBE_PROXY_URL']);
+const SECRET_KEYS = new Set(['DEEPSEEK_API_KEY', 'YOUTUBE_API_KEY', 'YOUTUBE_PROXY_URL', 'YOUTUBE_SUBSCRIPTION_URL']);
 
 function maskSecretValue(key: string, value: string | null): string | null {
   if (!value) return null;
+  // 代理地址只掩码密码部分
   if (key === 'YOUTUBE_PROXY_URL') {
     try {
       const url = new URL(value);
@@ -65,7 +67,7 @@ function maskSecretValue(key: string, value: string | null): string | null {
     } catch {}
     return value;
   }
-  // API 密钥：只显示首尾
+  // 其余密钥 / 订阅链接：只显示首尾
   if (value.length > 8) return value.slice(0, 3) + '****' + value.slice(-4);
   return '****';
 }
@@ -91,13 +93,30 @@ router.get('/user', authRequired, (req: AuthRequest, res) => {
 });
 
 // 更新用户配置
-router.put('/user', authRequired, (req: AuthRequest, res) => {
+router.put('/user', authRequired, async (req: AuthRequest, res) => {
   try {
     const { key, value } = req.body;
     const userId = req.user!.userId;
     if (!key) {
       return res.status(400).json({ error: 'key is required' });
     }
+
+    // 订阅链接特殊处理：保存后由 proxy-manager 启动/停止代理
+    if (key === 'YOUTUBE_SUBSCRIPTION_URL') {
+      if (value) {
+        setUserConfigValue(key, String(value), userId);
+        // 异步启动代理，不阻塞响应
+        proxyManager.register(userId, String(value)).catch(err => {
+          console.error('[Config] proxyManager.register error:', err);
+        });
+      } else {
+        deleteUserConfigValue(key, userId);
+        proxyManager.unregister(userId);
+      }
+      return res.json({ success: true });
+    }
+
+    // 其他配置键
     if (value === null || value === undefined) {
       deleteUserConfigValue(key, userId);
     } else {

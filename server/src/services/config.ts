@@ -5,6 +5,7 @@ export const USER_CONFIG_KEYS = [
   'DEEPSEEK_API_KEY',
   'YOUTUBE_API_KEY',
   'YOUTUBE_PROXY_URL',
+  'YOUTUBE_SUBSCRIPTION_URL',
   'ENABLE_BILIBILI',
   'ENABLE_YOUTUBE',
   'ENABLE_CODENAV',
@@ -13,7 +14,7 @@ export const USER_CONFIG_KEYS = [
 
 export type UserConfigKey = typeof USER_CONFIG_KEYS[number];
 
-const SECRET_KEYS = new Set(['DEEPSEEK_API_KEY', 'YOUTUBE_API_KEY', 'YOUTUBE_PROXY_URL']);
+const SECRET_KEYS = new Set(['DEEPSEEK_API_KEY', 'YOUTUBE_API_KEY', 'YOUTUBE_PROXY_URL', 'YOUTUBE_SUBSCRIPTION_URL']);
 
 /**
  * 获取用户配置值，未设置时回退到 process.env

@@ -13,6 +13,7 @@ import creatorsRouter, { runCreatorCollection } from './routes/creators.js';
 import authRouter from './routes/auth.js';
 import videosRouter from './routes/videos.js';
 import adminRouter from './routes/admin.js';
+import { proxyManager } from './services/proxy-manager.js';
 
 // 加载环境变量 - 从 server 目录加载 .env 文件
 const envPath = path.join(process.cwd(), 'server/.env');
@@ -119,6 +120,22 @@ app.listen(PORT, () => {
 ╚═══════════════════════════════════════════════════════╝
   `);
 
+  // 初始化代理管理器（恢复已保存的订阅实例）
+  proxyManager.init().catch(err => {
+    console.error('[Server] proxyManager.init failed:', err);
+  });
+});
+
+// 优雅关闭
+process.on('SIGTERM', () => {
+  console.log('[Server] SIGTERM received, shutting down...');
+  proxyManager.shutdown();
+  process.exit(0);
+});
+process.on('SIGINT', () => {
+  console.log('[Server] SIGINT received, shutting down...');
+  proxyManager.shutdown();
+  process.exit(0);
 });
 
 // 每日定时任务：早上 8:00 自动收集博主内容

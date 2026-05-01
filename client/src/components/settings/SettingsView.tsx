@@ -183,10 +183,12 @@ export function SettingsView() {
         />
 
         <ApiKeyField
-          label="YouTube 代理地址"
-          keyName="YOUTUBE_PROXY_URL"
-          placeholder="http://127.0.0.1:7890"
+          label="机场订阅链接"
+          keyName="YOUTUBE_SUBSCRIPTION_URL"
+          placeholder="https://example.com/api/v1/client/subscribe?token=..."
+          isPassword
         />
+        <p className="text-xs text-text-tertiary -mt-2">配置订阅链接后自动设置 YouTube 代理，可访问 YouTube 数据源</p>
       </Card>
 
       {/* 数据源开关区 */}
