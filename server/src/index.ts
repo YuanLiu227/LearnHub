@@ -11,6 +11,7 @@ import docsRouter from './routes/docs.js';
 import dashboardRouter from './routes/dashboard.js';
 import creatorsRouter, { runCreatorCollection } from './routes/creators.js';
 import authRouter from './routes/auth.js';
+import videosRouter from './routes/videos.js';
 
 // 加载环境变量 - 从 server 目录向上找 .env 文件
 const envPath = path.join(process.cwd(), '.env');
@@ -45,6 +46,7 @@ app.use('/api/docs', docsRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/creators', creatorsRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/videos', videosRouter);
 
 // 健康检查
 app.get('/api/health', (req, res) => {

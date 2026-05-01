@@ -161,7 +161,7 @@ export const dashboardApi = {
     await api.delete(`/dashboard/resource/${id}`);
   },
 
-  batchDeleteResources: async (type: 'keywords' | 'creators'): Promise<void> => {
+  batchDeleteResources: async (type: 'keywords' | 'creators' | 'direct_video'): Promise<void> => {
     await api.post('/dashboard/resources/batch-delete', { type });
   },
 
@@ -228,3 +228,15 @@ export const creatorsApi = {
 };
 
 export default api;
+
+// 视频 URL 提交 API
+export const videosApi = {
+  submit: async (url: string, platform: string): Promise<{ success: boolean; item: any }> => {
+    const response = await api.post('/videos/submit', { url, platform });
+    return response.data;
+  },
+  list: async (page = 1, pageSize = 20): Promise<{ items: any[]; total: number }> => {
+    const response = await api.get('/videos', { params: { page, pageSize } });
+    return response.data;
+  },
+};

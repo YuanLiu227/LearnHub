@@ -47,7 +47,7 @@ export async function sendVerificationEmail(email: string, code: string): Promis
 
   try {
     await getTransporter().sendMail({
-      from: process.env.SMTP_USER,
+      from: process.env.SMTP_FROM || 'LearnHub <onboarding@resend.dev>',
       to: email,
       subject: '[LearnHub] 邮箱验证码',
       html: `

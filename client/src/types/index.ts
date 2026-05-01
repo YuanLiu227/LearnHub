@@ -28,6 +28,7 @@ export interface NewsItem {
   creatorName?: string;
   completed?: boolean;
   favorited?: boolean;
+  resourceType?: 'keyword' | 'creator' | 'direct_video';
 }
 
 export interface FollowedCreator {

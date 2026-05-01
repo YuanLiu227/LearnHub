@@ -196,6 +196,11 @@ function ResourceCard({ item, delay, onDelete, onToggleComplete, onToggleFavorit
                   👤 {item.creatorName}
                 </Badge>
               )}
+              {item.resourceType === 'direct_video' && !item.keywordTerm && !item.creatorName && (
+                <Badge variant="default" className="text-[11px] text-text-tertiary">
+                  📹 视频资源
+                </Badge>
+              )}
             </div>
             <h3 className={`text-sm font-medium leading-relaxed group-hover:text-accent transition-colors line-clamp-2 ${
               item.completed ? 'text-text-secondary line-through decoration-1' : 'text-text'
@@ -291,9 +296,10 @@ function DashboardView() {
     batchDeleteResources, batchDeleteResourcesByIds,
   } = useAppStore();
 
-  const [resourceTab, setResourceTab] = useState<'keywords' | 'creators'>('keywords');
+  const [resourceTab, setResourceTab] = useState<'keywords' | 'creators' | 'direct_video'>('keywords');
   const [kwPage, setKwPage] = useState(1);
   const [crPage, setCrPage] = useState(1);
+  const [dvPage, setDvPage] = useState(1);
   const [selectedCreator, setSelectedCreator] = useState<string | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -329,20 +335,22 @@ function DashboardView() {
   const kwResources = resources.filter(r => r.keywordId);
   const crResources = resources.filter(r => r.creatorId && !r.keywordId)
     .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
+  const dvResources = resources.filter(r => r.resourceType === 'direct_video');
 
   // 博主筛选
   const creatorNames = [...new Set(crResources.map(r => r.creatorName).filter(Boolean))] as string[];
   const crFiltered = selectedCreator
     ? crResources.filter(r => r.creatorName === selectedCreator)
     : crResources;
-  const filteredResources = resourceTab === 'keywords' ? kwResources : crFiltered;
-  const currentPage = resourceTab === 'keywords' ? kwPage : crPage;
-  const totalFiltered = resourceTab === 'keywords' ? kwResources.length : crResources.length;
+  const filteredResources = resourceTab === 'keywords' ? kwResources : resourceTab === 'creators' ? crFiltered : dvResources;
+  const currentPage = resourceTab === 'keywords' ? kwPage : resourceTab === 'creators' ? crPage : dvPage;
+  const totalFiltered = resourceTab === 'keywords' ? kwResources.length : resourceTab === 'creators' ? crResources.length : dvResources.length;
   const totalFilteredPages = Math.ceil(totalFiltered / PAGE_SIZE);
 
   const handlePageChange = (newPage: number) => {
     if (resourceTab === 'keywords') setKwPage(newPage);
-    else setCrPage(newPage);
+    else if (resourceTab === 'creators') setCrPage(newPage);
+    else setDvPage(newPage);
   };
 
   // 分页
@@ -404,13 +412,15 @@ function DashboardView() {
             {[
               { id: 'keywords' as const, label: '关键词资源', count: kwResources.length },
               { id: 'creators' as const, label: '博主资源', count: crResources.length },
+              { id: 'direct_video' as const, label: '视频资源', count: dvResources.length },
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => {
                   setResourceTab(tab.id);
                   if (tab.id === 'keywords') setKwPage(1);
-                  else setCrPage(1);
+                  else if (tab.id === 'creators') setCrPage(1);
+                  else setDvPage(1);
                 }}
                 className={`flex items-center gap-1.5 text-xs font-medium transition-colors relative pb-3 -mb-3 ${
                   resourceTab === tab.id
@@ -442,7 +452,8 @@ function DashboardView() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    batchDeleteResources(resourceTab);
+                    const deleteType = resourceTab === 'direct_video' ? 'direct_video' : resourceTab;
+                    batchDeleteResources(deleteType);
                     setConfirmBatchClear(false);
                   }}
                   className="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
@@ -508,7 +519,8 @@ function DashboardView() {
           <Card className="p-12 flex items-center justify-center">
             <p className="text-sm text-text-tertiary">
               {resourceTab === 'keywords' ? '暂无关键词资源，点击右上角「关键词搜索」开始查找' :
-               '暂无博主资源，先关注博主后再点击「博主搜索」'}
+               resourceTab === 'creators' ? '暂无博主资源，先关注博主后再点击「博主搜索」' :
+               '暂无视频资源，在「关键词」页面的「添加视频」中提交视频链接'}
             </p>
           </Card>
         ) : (
@@ -623,16 +635,34 @@ function FavoritesView() {
 }
 
 function KeywordsView() {
-  const { keywords, fetchKeywords, isSearching, searchProgress } = useAppStore();
-  const [subTab, setSubTab] = useState<'keywords' | 'creators'>('keywords');
+  const { keywords, fetchKeywords, isSearching, searchProgress, submitVideoUrl, isSubmittingVideo, error, clearError } = useAppStore();
+  const [subTab, setSubTab] = useState<'keywords' | 'creators' | 'addVideo'>('keywords');
+  const [videoPlatform, setVideoPlatform] = useState<'bilibili' | 'youtube'>('bilibili');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [videoSuccess, setVideoSuccess] = useState('');
 
   useEffect(() => {
     fetchKeywords();
   }, []);
 
+  const handleSubmitVideo = async () => {
+    if (!videoUrl.trim()) return;
+    setVideoSuccess('');
+    clearError();
+    try {
+      await submitVideoUrl(videoUrl.trim(), videoPlatform);
+      setVideoUrl('');
+      setVideoSuccess('视频添加成功！前往「资源总览」→「视频资源」查看');
+      setTimeout(() => setVideoSuccess(''), 5000);
+    } catch {
+      // error state is set by the store
+    }
+  };
+
   const subTabs = [
     { id: 'keywords' as const, label: '关键词搜索', icon: Hash },
     { id: 'creators' as const, label: '关注的博主', icon: UserCheck },
+    { id: 'addVideo' as const, label: '添加视频', icon: Video },
   ];
 
   return (
@@ -695,8 +725,100 @@ function KeywordsView() {
             <KeywordList />
           </Card>
         </div>
-      ) : (
+      ) : subTab === 'creators' ? (
         <CreatorView />
+      ) : (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wider">添加视频</h2>
+          </div>
+
+          <Card className="p-5">
+            <p className="text-xs text-text-secondary mb-4">
+              粘贴 Bilibili 或 YouTube 视频链接，系统将自动获取视频信息并添加到资源总览。
+            </p>
+
+            {/* 平台选择 */}
+            <div className="flex gap-3 mb-4">
+              <button
+                onClick={() => setVideoPlatform('bilibili')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+                  videoPlatform === 'bilibili'
+                    ? 'bg-blue-500/15 text-blue-400 border border-blue-500/25'
+                    : 'bg-surface text-text-tertiary border border-border hover:border-border-hover'
+                }`}
+              >
+                <Video className="w-3.5 h-3.5" />
+                Bilibili
+              </button>
+              <button
+                onClick={() => setVideoPlatform('youtube')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+                  videoPlatform === 'youtube'
+                    ? 'bg-red-500/15 text-red-400 border border-red-500/25'
+                    : 'bg-surface text-text-tertiary border border-border hover:border-border-hover'
+                }`}
+              >
+                <Youtube className="w-3.5 h-3.5" />
+                YouTube
+              </button>
+            </div>
+
+            {/* URL 输入 */}
+            <div className="flex gap-3">
+              <input
+                type="url"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubmitVideo()}
+                placeholder={videoPlatform === 'bilibili'
+                  ? 'https://www.bilibili.com/video/BV...'
+                  : 'https://www.youtube.com/watch?v=...'
+                }
+                className="flex-1 px-3.5 py-2 bg-surface border border-border rounded-lg text-text placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition-all duration-200 text-sm"
+              />
+              <Button
+                onClick={handleSubmitVideo}
+                disabled={!videoUrl.trim() || isSubmittingVideo}
+              >
+                {isSubmittingVideo ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                获取视频
+              </Button>
+            </div>
+
+            {/* 成功提示 */}
+            <AnimatePresence>
+              {videoSuccess && (
+                <motion.p
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="text-xs text-green-400 mt-3"
+                >
+                  {videoSuccess}
+                </motion.p>
+              )}
+            </AnimatePresence>
+
+            {/* 错误提示 */}
+            <AnimatePresence>
+              {error && (
+                <motion.p
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="text-xs text-red-400 mt-3"
+                >
+                  {error}
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </Card>
+        </div>
       )}
     </div>
   );
@@ -990,9 +1112,6 @@ export function Home() {
     requestNotificationPermission();
   }, []);
 
-  if (!isAuthReady) return null;
-  if (!token || !user) return <LoginPage />;
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
@@ -1004,6 +1123,9 @@ export function Home() {
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showNotificationPanel]);
+
+  if (!isAuthReady) return null;
+  if (!token || !user) return <LoginPage />;
 
   const tabs: { id: TabType; label: string; icon: any }[] = [
     { id: 'dashboard', label: '资源总览', icon: Library },

@@ -79,11 +79,10 @@ export function LoginPage() {
     try {
       const result = await sendRegisterCode(email, password, captchaId, captchaInput);
       setStep('verify');
+      setMessage('验证码已发送到您的邮箱，请查收');
+      // 开发模式下不自动填入，可在控制台查看验证码
       if (result.devCode) {
-        setCode(result.devCode);
-        setMessage('开发模式：验证码已自动填入');
-      } else {
-        setMessage('验证码已发送到您的邮箱');
+        console.log('[Dev] 验证码:', result.devCode);
       }
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || '发送验证码失败');

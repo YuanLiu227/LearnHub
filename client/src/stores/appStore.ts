@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Keyword, NewsItem, AppConfig, MonitorProgress, FollowedCreator } from '../types';
-import api, { keywordsApi, monitorApi, dashboardApi, searchApi, configApi, creatorsApi, authApi } from '../services/api';
+import api, { keywordsApi, monitorApi, dashboardApi, searchApi, configApi, creatorsApi, authApi, videosApi } from '../services/api';
 
 export type TabType = 'dashboard' | 'keywords' | 'overview' | 'search' | 'favorites';
 
@@ -37,7 +37,7 @@ interface AppState {
   permanentDeleteKeyword: (id: string) => Promise<void>;
   toggleKeyword: (id: string, enabled: boolean) => Promise<void>;
   deleteResource: (id: string) => Promise<void>;
-  batchDeleteResources: (type: 'keywords' | 'creators') => Promise<void>;
+  batchDeleteResources: (type: 'keywords' | 'creators' | 'direct_video') => Promise<void>;
   batchDeleteResourcesByIds: (ids: string[]) => Promise<void>;
 
   // 学习资源
@@ -86,6 +86,10 @@ interface AppState {
   isCollectingCreators: boolean;
   creatorCollectProgress: MonitorProgress | null;
   triggerCreatorCollect: () => Promise<void>;
+
+  // 视频 URL 提交
+  isSubmittingVideo: boolean;
+  submitVideoUrl: (url: string, platform: string) => Promise<void>;
 
   // 全局状态
   isLoading: boolean;
@@ -410,7 +414,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  batchDeleteResources: async (type: 'keywords' | 'creators') => {
+  // 视频 URL 提交
+  isSubmittingVideo: false,
+
+  submitVideoUrl: async (url: string, platform: string) => {
+    set({ isSubmittingVideo: true, error: null });
+    try {
+      await videosApi.submit(url, platform);
+      await get().fetchResources();
+      set({ isSubmittingVideo: false, error: null });
+    } catch (error: any) {
+      const msg = error.response?.data?.error || error.message || '添加视频失败';
+      set({ isSubmittingVideo: false, error: msg });
+      throw error;
+    }
+  },
+
+  batchDeleteResources: async (type: 'keywords' | 'creators' | 'direct_video') => {
     try {
       await dashboardApi.batchDeleteResources(type);
       await get().fetchResources();

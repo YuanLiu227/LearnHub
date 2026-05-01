@@ -36,7 +36,7 @@ export async function sendEmail(notification: Notification): Promise<void> {
 
   try {
     await getTransporter().sendMail({
-      from: process.env.SMTP_USER,
+      from: process.env.SMTP_FROM || 'LearnHub <onboarding@resend.dev>',
       to: process.env.NOTIFICATION_EMAIL,
       subject: `🔥 Hot Monitor: ${notification.title}`,
       html: `

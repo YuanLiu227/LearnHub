@@ -1,4 +1,4 @@
-import Database, { Database as DatabaseType } from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -13,10 +13,10 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-export const db: DatabaseType = new Database(dbPath);
+export const db = new DatabaseSync(dbPath);
 
 // 启用 WAL 模式，提高并发性能
-db.pragma('journal_mode = WAL');
+db.exec('PRAGMA journal_mode = WAL');
 
 // 创建表
 db.exec(`
@@ -110,6 +110,9 @@ try { db.exec(`ALTER TABLE news_items ADD COLUMN user_id TEXT`); } catch (e) {}
 try { db.exec(`ALTER TABLE followed_creators ADD COLUMN user_id TEXT`); } catch (e) {}
 try { db.exec(`ALTER TABLE config ADD COLUMN user_id TEXT`); } catch (e) {}
 try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT`); } catch (e) {}
+try { db.exec(`ALTER TABLE news_items ADD COLUMN resource_type TEXT DEFAULT 'keyword'`); } catch (e) {}
+try { db.exec(`UPDATE news_items SET resource_type = 'creator' WHERE creator_id IS NOT NULL AND resource_type IS NULL`); } catch (e) {}
+try { db.exec(`UPDATE news_items SET resource_type = 'keyword' WHERE keyword_id IS NOT NULL AND resource_type IS NULL`); } catch (e) {}
 
 // 迁移：如果 keyword_id 为 NOT NULL，则重建 news_items 表以支持空值
 try {

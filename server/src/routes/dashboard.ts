@@ -25,6 +25,7 @@ interface NewsItemRow {
   creator_name: string | null;
   completed?: number;
   favorited?: number;
+  resource_type?: string;
 }
 
 interface HotTopicRow {
@@ -81,10 +82,10 @@ router.get('/stats', authRequired, (req: AuthRequest, res) => {
   }
 });
 
-// 获取热点列表（分页，可选按来源筛选）
+// 获取热点列表（分页，可选按来源或资源类型筛选）
 router.get('/hotspots', authRequired, (req: AuthRequest, res) => {
   try {
-    const { page = 1, pageSize = 20, source } = req.query;
+    const { page = 1, pageSize = 20, source, resourceType } = req.query;
     const offset = (Number(page) - 1) * Number(pageSize);
     const params: any[] = [req.user!.userId];
 
@@ -92,6 +93,10 @@ router.get('/hotspots', authRequired, (req: AuthRequest, res) => {
     if (source && source !== 'all') {
       whereClause += ' AND n.source = ?';
       params.push(source);
+    }
+    if (resourceType) {
+      whereClause += ' AND n.resource_type = ?';
+      params.push(resourceType);
     }
 
     const rows = db.prepare(`
@@ -127,6 +132,7 @@ router.get('/hotspots', authRequired, (req: AuthRequest, res) => {
       creatorName: row.creator_name || undefined,
       completed: Boolean(row.completed),
       favorited: Boolean(row.favorited),
+      resourceType: row.resource_type || (row.keyword_id ? 'keyword' : row.creator_id ? 'creator' : undefined),
     }));
 
     res.json({ items, total: countResult.count, page: Number(page), pageSize: Number(pageSize) });
@@ -212,6 +218,7 @@ router.get('/search', authRequired, (req: AuthRequest, res) => {
       creatorName: row.creator_name || undefined,
       completed: Boolean(row.completed),
       favorited: Boolean(row.favorited),
+      resourceType: row.resource_type || (row.keyword_id ? 'keyword' : row.creator_id ? 'creator' : undefined),
     }));
 
     res.json({
@@ -321,6 +328,7 @@ router.get('/favorites', authRequired, (req: AuthRequest, res) => {
       creatorName: row.creator_name || undefined,
       completed: Boolean(row.completed),
       favorited: Boolean(row.favorited),
+      resourceType: row.resource_type || (row.keyword_id ? 'keyword' : row.creator_id ? 'creator' : undefined),
     }));
 
     res.json({ items, total: countResult.count, page: Number(page), pageSize: Number(pageSize) });
@@ -356,8 +364,10 @@ router.post('/resources/batch-delete', authRequired, (req: AuthRequest, res) => 
       db.prepare('DELETE FROM news_items WHERE keyword_id IS NOT NULL AND user_id = ?').run(userId);
     } else if (type === 'creators') {
       db.prepare('DELETE FROM news_items WHERE creator_id IS NOT NULL AND user_id = ?').run(userId);
+    } else if (type === 'direct_video') {
+      db.prepare("DELETE FROM news_items WHERE resource_type = 'direct_video' AND user_id = ?").run(userId);
     } else {
-      return res.status(400).json({ error: 'Invalid type, must be "keywords" or "creators"' });
+      return res.status(400).json({ error: 'Invalid type, must be "keywords", "creators", or "direct_video"' });
     }
     res.json({ success: true });
   } catch (error) {
