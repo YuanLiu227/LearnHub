@@ -241,10 +241,10 @@ export async function runCreatorCollection(collectId: string = `creator_${Date.n
         });
 
         try {
-          // 检查 URL 是否已存在（只返回新内容）
-          const existing = db.prepare('SELECT id FROM news_items WHERE url = ?').get(item.url);
+          // 检查该用户的 URL 是否已存在
+          const existing = db.prepare('SELECT id FROM news_items WHERE url = ? AND user_id = ?').get(item.url, userId || null);
           if (existing) {
-            console.log(`[CreatorCollect] Skipping existing URL: ${(item.url || '').slice(0, 60)}`);
+            console.log(`[CreatorCollect] Skipping existing URL for user: ${(item.url || '').slice(0, 60)}`);
             continue;
           }
 
