@@ -155,15 +155,15 @@ router.get('/search', authRequired, (req: AuthRequest, res) => {
 
     const searchTerm = `%${q}%`;
 
-    // 搜索 news_items + hot_topics 两张表，并包含 keyword_term 匹配
+    // 搜索 news_items + hot_topics 两张表，并包含 keyword_term 和 creator_name 匹配
     const newsRows = db.prepare(`
       SELECT n.*, k.term as keyword_term, 'news' as _data_type
       FROM news_items n
       LEFT JOIN keywords k ON n.keyword_id = k.id
-      WHERE (n.title LIKE ? OR n.summary LIKE ? OR k.term LIKE ?) AND n.user_id = ?
+      WHERE (n.title LIKE ? OR n.summary LIKE ? OR k.term LIKE ? OR n.creator_name LIKE ?) AND n.user_id = ?
       ORDER BY n.published_at DESC
       LIMIT ? OFFSET ?
-    `).all(searchTerm, searchTerm, searchTerm, userId, Number(pageSize), offset) as unknown as NewsItemRow[];
+    `).all(searchTerm, searchTerm, searchTerm, searchTerm, userId, Number(pageSize), offset) as unknown as NewsItemRow[];
 
     const hotRows = db.prepare(`
       SELECT
@@ -193,11 +193,11 @@ router.get('/search', authRequired, (req: AuthRequest, res) => {
       SELECT COUNT(*) as count FROM (
         SELECT n.url FROM news_items n
         LEFT JOIN keywords k ON n.keyword_id = k.id
-        WHERE (n.title LIKE ? OR n.summary LIKE ? OR k.term LIKE ?) AND n.user_id = ?
+        WHERE (n.title LIKE ? OR n.summary LIKE ? OR k.term LIKE ? OR n.creator_name LIKE ?) AND n.user_id = ?
         UNION
         SELECT url FROM hot_topics WHERE title LIKE ? OR summary LIKE ?
       )
-    `).get(searchTerm, searchTerm, searchTerm, userId, searchTerm, searchTerm) as unknown as CountRow).count;
+    `).get(searchTerm, searchTerm, searchTerm, searchTerm, userId, searchTerm, searchTerm) as unknown as CountRow).count;
 
     const items = (merged as any[]).map((row) => ({
       id: row.id,
