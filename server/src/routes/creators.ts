@@ -253,8 +253,8 @@ export async function runCreatorCollection(collectId: string = `creator_${Date.n
 
           db.prepare(`
             INSERT INTO news_items
-            (id, keyword_id, title, url, source, source_name, published_at, is_real, confidence, summary, matched_at, heat, creator_id, creator_name, user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, keyword_id, title, url, source, source_name, published_at, is_real, confidence, summary, matched_at, heat, creator_id, creator_name, user_id, resource_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
             id,
             null,
@@ -271,6 +271,7 @@ export async function runCreatorCollection(collectId: string = `creator_${Date.n
             item._creatorId || null,
             item._creatorName || null,
             userId || null,
+            'creator',
           );
 
           verifiedCount++;

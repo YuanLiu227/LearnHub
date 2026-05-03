@@ -231,8 +231,8 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
 
               db.prepare(`
                 INSERT INTO news_items
-                (id, keyword_id, title, url, source, source_name, published_at, is_real, confidence, summary, matched_at, heat, user_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id, keyword_id, title, url, source, source_name, published_at, is_real, confidence, summary, matched_at, heat, user_id, resource_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).run(
                 id,
                 keyword.id,
@@ -246,7 +246,8 @@ export async function runMonitorInBackground(monitorId: string = `auto_${Date.no
                 item.summary || item.description || '',
                 matchedAt,
                 item.heat ?? 50,
-                userId || null
+                userId || null,
+                'keyword',
               );
 
               verifiedCount++;
